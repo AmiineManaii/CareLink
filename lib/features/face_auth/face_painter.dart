@@ -10,12 +10,11 @@ class FacePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final borderPaint = Paint()
       ..color = ready ? Colors.green : Colors.orange
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
-    // Calculer le ratio pour garder les proportions de l'image
     final double imageAspectRatio = imageSize.width / imageSize.height;
     final double canvasAspectRatio = size.width / size.height;
     
@@ -24,29 +23,27 @@ class FacePainter extends CustomPainter {
     double dy = 0;
     
     if (canvasAspectRatio > imageAspectRatio) {
-      // Le canvas est plus large que l'image => marges sur les côtés
       scale = size.height / imageSize.height;
       dx = (size.width - imageSize.width * scale) / 2;
     } else {
-      // Le canvas est plus étroit que l'image => marges en haut/bas
       scale = size.width / imageSize.width;
       dy = (size.height - imageSize.height * scale) / 2;
     }
     
-    // Fonction pour transformer les coordonnées
     double transformX(double x) => dx + x * scale;
     double transformY(double y) => dy + y * scale;
 
-    for (var face in faces) {
-      final rect = Rect.fromLTRB(
-        transformX(face.boundingBox.left),
-        transformY(face.boundingBox.top),
-        transformX(face.boundingBox.right),
-        transformY(face.boundingBox.bottom),
-      );
-      canvas.drawRect(rect, paint);
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = 0.35 * (size.shortestSide);
+    final dimPath = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addOval(Rect.fromCircle(center: center, radius: radius))
+      ..fillType = PathFillType.evenOdd;
+    final dimPaint = Paint()..color = Colors.black54;
+    canvas.drawPath(dimPath, dimPaint);
+    canvas.drawCircle(center, radius, borderPaint);
 
-      // Dessiner les contours
+    for (var face in faces) {
       final paintContours = Paint()
         ..color = Colors.red
         ..style = PaintingStyle.stroke

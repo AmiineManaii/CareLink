@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:care_link/features/face_auth/face_recognition_service.dart';
 import 'package:care_link/features/face_auth/face_utils.dart';
@@ -29,6 +30,8 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
   bool _isDetecting = false;
   bool _isSuccess = false;
   bool _isCapturing = false;
+  bool _isCentered = false;
+  bool _readyToCapture = true;
   List<Face> _faces = [];
   String _authStatus = "Recherche de visage...";
   Color _statusColor = Colors.white;
@@ -36,6 +39,8 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
   Timer? _captureTimer;
   double _currentZoom = 1.0;
   double _maxZoom = 1.0;
+  Size? _imageSize;
+  DateTime? _captureEndTime;
 
   @override
   void initState() {
@@ -55,7 +60,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
 
     _controller = CameraController(
       frontCamera,
-      ResolutionPreset.medium,
+      ResolutionPreset.high,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.yuv420,
     );
@@ -70,6 +75,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
   void dispose() {
     _controller?.dispose();
     _faceDetectorService.dispose();
+    _captureTimer?.cancel();
     super.dispose();
   }
 
@@ -80,33 +86,47 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     try {
       final inputImage = _convertCameraImage(image);
       final faces = await _faceDetectorService.detectFaces(inputImage);
+      final rotation = _camera?.sensorOrientation ?? 0;
+      _imageSize = (rotation == 90 || rotation == 270)
+          ? Size(image.height.toDouble(), image.width.toDouble())
+          : Size(image.width.toDouble(), image.height.toDouble());
 
       if (!mounted) return;
       setState(() {
         _faces = faces;
+        _isCentered = faces.isNotEmpty ? _checkCentered(faces.first) : false;
+        
       });
 
       if (faces.isNotEmpty) {
-        // Ajouter l'embedding au buffer pour moyenne
         final imgImage = convertCameraImageToImage(image);
-        var faceCrop = cropFace(imgImage, faces.first);
+        final rotated = rotateForSensor(imgImage, rotation);
+        var faceCrop = cropFace(rotated, faces.first);
         faceCrop = resizeFace(faceCrop, 112);
         if (_camera?.lensDirection == CameraLensDirection.front) {
           faceCrop = img.flipHorizontal(faceCrop);
         }
         final embedding = _faceRecognitionService.getEmbedding(faceCrop);
+        
         if (_isCapturing) {
           _embeddingBuffer.add(embedding);
         } else {
-          _isCapturing = true;
-          _embeddingBuffer = [embedding];
-          _startCapture(stored: InMemoryFaceStorage().getEmbedding());
+          if (_readyToCapture && _isCentered) {
+            _isCapturing = true;
+            _readyToCapture = false;
+            _captureEndTime = DateTime.now().add(const Duration(seconds: 3));
+            _embeddingBuffer = [embedding];
+            _startCapture(stored: InMemoryFaceStorage().getEmbedding());
+          } else if (!_isCentered) {
+            _readyToCapture = true;
+          }
         }
       } else {
         if (mounted) {
           setState(() {
             _authStatus = "Placez votre visage dans le cadre";
             _statusColor = Colors.white;
+            _readyToCapture = true;
           });
         }
       }
@@ -148,52 +168,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     }
   }
 
-  Future<void> _authenticateFace(CameraImage image, Face face) async {
-    try {
-      final storedEmbedding = InMemoryFaceStorage().getEmbedding();
-      if (storedEmbedding == null) {
-        if (mounted) {
-          setState(() {
-            _authStatus = "Aucun utilisateur enregistré (Signup d'abord)";
-            _statusColor = Colors.orange;
-          });
-        }
-        return;
-      }
-
-      final imgImage = convertCameraImageToImage(image);
-      var faceCrop = cropFace(imgImage, face);
-      // Resize + flip horizontal pour caméra frontale
-      faceCrop = resizeFace(faceCrop, 112);
-      faceCrop = img.flipHorizontal(faceCrop);
-      final embedding = _faceRecognitionService.getEmbedding(faceCrop);
-
-      final isMatch = FaceCompareService.match(embedding, storedEmbedding);
-
-      if (mounted) {
-        if (isMatch) {
-          _isSuccess = true;
-          await _controller?.stopImageStream();
-          setState(() {
-            _authStatus = "Authentification réussie !";
-            _statusColor = Colors.green;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Bienvenue ! Connexion réussie.")),
-          );
-          // TODO: Navigate to Home Screen
-        } else {
-          setState(() {
-            _authStatus = "Visage non reconnu";
-            _statusColor = Colors.red;
-          });
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) print("Auth error: $e");
-    }
-  }
-
   void _startCapture({List<double>? stored}) {
     _captureTimer?.cancel();
     _captureTimer = Timer(const Duration(seconds: 3), () async {
@@ -224,6 +198,8 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
       }
       _isCapturing = false;
       _embeddingBuffer.clear();
+      // Exiger un recentrage avant une nouvelle tentative
+      _readyToCapture = false;
     });
   }
 
@@ -239,8 +215,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     return sums.map((v) => v / count).toList();
   }
 
-  // zoom automatique supprimé pour un comportement fixe
-
   @override
   Widget build(BuildContext context) {
     if (_controller == null || !_controller!.value.isInitialized) {
@@ -249,47 +223,78 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Connexion Faciale")),
-      body: Center(
-        child: AspectRatio(
-          aspectRatio: _controller!.value.aspectRatio,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CameraPreview(_controller!),
-              CustomPaint(
-                painter: FacePainter(
-                  _faces,
-                  Size(
-                    _controller!.value.previewSize!.width,
-                    _controller!.value.previewSize!.height,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 16,
-                  ),
-                  color: Colors.black54,
-                  child: Text(
-                    _authStatus,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _statusColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+      body: Column(
+        children: [
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: _controller!.value.aspectRatio,
+              child: Transform(
+                alignment: Alignment.center,
+                transform: (_camera?.lensDirection == CameraLensDirection.front)
+                    ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
+                    : Matrix4.identity(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CameraPreview(_controller!),
+                    CustomPaint(
+                      painter: FacePainter(
+                        _faces,
+                        _imageSize ??
+                            Size(
+                              _controller!.value.previewSize!.width,
+                              _controller!.value.previewSize!.height,
+                            ),
+                        ready: _isCentered && _isCapturing,
+                      ),
                     ),
-                  ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        color: Colors.black54,
+                        child: Text(
+                          _isCapturing ? _countdownText() : _authStatus,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _statusColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
+  }
+
+  String _countdownText() {
+    if (_captureEndTime == null) return "Vérification en cours…";
+    final remainingMs = _captureEndTime!
+        .difference(DateTime.now())
+        .inMilliseconds;
+    final seconds = (remainingMs / 1000).clamp(0, 3);
+    return "Vérification dans ${seconds.toStringAsFixed(1)} s…";
+  }
+
+  bool _checkCentered(Face face) {
+    if (_imageSize == null) return false;
+    final cx = face.boundingBox.center.dx;
+    final cy = face.boundingBox.center.dy;
+    final nx = (cx / _imageSize!.width) - 0.5;
+    final ny = (cy / _imageSize!.height) - 0.5;
+    final dist = math.sqrt(nx * nx + ny * ny);
+    return dist < 0.25;
   }
 }

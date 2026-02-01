@@ -16,6 +16,20 @@ img.Image convertCameraImageToImage(CameraImage cameraImage) {
   );
 }
 
+/// Rotate image to match camera sensor orientation used by ML Kit
+img.Image rotateForSensor(img.Image image, int rotationDegrees) {
+  switch (rotationDegrees) {
+    case 90:
+      return img.copyRotate(image,90);
+    case 180:
+      return img.copyRotate(image,  180);
+    case 270:
+      return img.copyRotate(image, 270);
+    default:
+      return image;
+  }
+}
+
 /// Crop le visage à partir de l'image et du boundingBox
 img.Image cropFace(img.Image originalImage, Face face) {
   final rect = face.boundingBox;
@@ -32,6 +46,7 @@ img.Image cropFace(img.Image originalImage, Face face) {
 img.Image resizeFace(img.Image faceImage, int size) {
   return img.copyResize(faceImage, width: size, height: size);
 }
+
 Float32List imageToByteList(img.Image image) {
   final Float32List buffer = Float32List(1 * 112 * 112 * 3);
   int idx = 0;
