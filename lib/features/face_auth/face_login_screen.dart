@@ -61,11 +61,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     );
 
     await _controller!.initialize();
-    try {
-      _maxZoom = await _controller!.getMaxZoomLevel();
-      _currentZoom = await _controller!.getMinZoomLevel();
-      await _controller!.setZoomLevel(_currentZoom);
-    } catch (_) {}
     if (!mounted) return;
     await _controller!.startImageStream(_processCameraImage);
     setState(() {});
@@ -92,13 +87,13 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
       });
 
       if (faces.isNotEmpty) {
-        // Zoom dynamique pour cadrer le visage
-        _adjustZoomForFace(faces.first);
         // Ajouter l'embedding au buffer pour moyenne
         final imgImage = convertCameraImageToImage(image);
         var faceCrop = cropFace(imgImage, faces.first);
         faceCrop = resizeFace(faceCrop, 112);
-        faceCrop = img.flipHorizontal(faceCrop);
+        if (_camera?.lensDirection == CameraLensDirection.front) {
+          faceCrop = img.flipHorizontal(faceCrop);
+        }
         final embedding = _faceRecognitionService.getEmbedding(faceCrop);
         if (_isCapturing) {
           _embeddingBuffer.add(embedding);
@@ -201,7 +196,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
 
   void _startCapture({List<double>? stored}) {
     _captureTimer?.cancel();
-    _captureTimer = Timer(const Duration(seconds: 2), () async {
+    _captureTimer = Timer(const Duration(seconds: 3), () async {
       if (_embeddingBuffer.isNotEmpty) {
         final averaged = _averageEmbeddings(_embeddingBuffer);
         final storedEmbedding = stored ?? InMemoryFaceStorage().getEmbedding();
@@ -244,24 +239,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     return sums.map((v) => v / count).toList();
   }
 
-  void _adjustZoomForFace(Face face) async {
-    if (_controller == null) return;
-    final size = _controller!.value.previewSize;
-    if (size == null) return;
-    final fraction = face.boundingBox.width / size.width;
-    double target = _currentZoom;
-    if (fraction < 0.30) {
-      target = (_currentZoom + 0.2).clamp(1.0, _maxZoom);
-    } else if (fraction > 0.55) {
-      target = (_currentZoom - 0.1).clamp(1.0, _maxZoom);
-    }
-    if ((target - _currentZoom).abs() >= 0.05) {
-      _currentZoom = target;
-      try {
-        await _controller!.setZoomLevel(_currentZoom);
-      } catch (_) {}
-    }
-  }
+  // zoom automatique supprimé pour un comportement fixe
 
   @override
   Widget build(BuildContext context) {
@@ -269,47 +247,48 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final size = MediaQuery.of(context).size;
-    var scale = size.aspectRatio * _controller!.value.aspectRatio;
-    if (scale < 1) scale = 1 / scale;
-
     return Scaffold(
       appBar: AppBar(title: const Text("Connexion Faciale")),
-      body: Stack(
-        children: [
-          Transform.scale(
-            scale: scale,
-            child: Center(child: CameraPreview(_controller!)),
-          ),
-          if (_camera != null)
-            CustomPaint(
-              painter: FacePainter(
-                _faces,
-                Size(
-                  _controller!.value.previewSize!.height,
-                  _controller!.value.previewSize!.width,
+      body: Center(
+        child: AspectRatio(
+          aspectRatio: _controller!.value.aspectRatio,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CameraPreview(_controller!),
+              CustomPaint(
+                painter: FacePainter(
+                  _faces,
+                  Size(
+                    _controller!.value.previewSize!.width,
+                    _controller!.value.previewSize!.height,
+                  ),
                 ),
               ),
-            ),
-          Positioned(
-            bottom: 50,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              color: Colors.black54,
-              child: Text(
-                _authStatus,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _statusColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  color: Colors.black54,
+                  child: Text(
+                    _authStatus,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _statusColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -60,11 +60,6 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
     );
 
     await _controller!.initialize();
-    try {
-      _maxZoom = await _controller!.getMaxZoomLevel();
-      _currentZoom = await _controller!.getMinZoomLevel();
-      await _controller!.setZoomLevel(_currentZoom);
-    } catch (_) {}
     await _controller!.startImageStream(_processCameraImage);
 
     setState(() {});
@@ -96,7 +91,6 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
         faceCrop = resizeFace(faceCrop, 112);
         faceCrop = img.flipHorizontal(faceCrop);
         final embedding = _faceRecognitionService.getEmbedding(faceCrop);
-        _adjustZoomForFace(faces.first);
         if (_isCapturing) {
           _embeddingBuffer.add(embedding);
         } else {
@@ -116,7 +110,7 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
   void _startCapture() {
     _isCapturing = true;
     _captureTimer?.cancel();
-    _captureTimer = Timer(const Duration(seconds: 5), () async {
+    _captureTimer = Timer(const Duration(seconds: 3), () async {
       if (_embeddingBuffer.isNotEmpty) {
         final averaged = _averageEmbeddings(_embeddingBuffer);
         setState(() {
@@ -144,24 +138,8 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
     return sums.map((v) => v / count).toList();
   }
 
-  void _adjustZoomForFace(Face face) async {
-    if (_controller == null) return;
-    final size = _controller!.value.previewSize;
-    if (size == null) return;
-    final fraction = face.boundingBox.width / size.width;
-    double target = _currentZoom;
-    if (fraction < 0.30) {
-      target = (_currentZoom + 0.2).clamp(1.0, _maxZoom);
-    } else if (fraction > 0.55) {
-      target = (_currentZoom - 0.1).clamp(1.0, _maxZoom);
-    }
-    if ((target - _currentZoom).abs() >= 0.05) {
-      _currentZoom = target;
-      try {
-        await _controller!.setZoomLevel(_currentZoom);
-      } catch (_) {}
-    }
-  }
+  // zoom automatique supprimé pour un comportement fixe
+
   InputImage _convertCameraImage(CameraImage image) {
     final WriteBuffer buffer = WriteBuffer();
     for (final Plane plane in image.planes) {
@@ -211,47 +189,43 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Signup – Reconnaissance faciale")),
-      body: Stack(
-        children: [
-          CameraPreview(_controller!),
-
-          CustomPaint(
-            painter: FacePainter(
-              _faces,
-              Size(previewSize.height, previewSize.width),
-            ),
-          ),
-
-          Positioned(
-            bottom: 40,
-            left: 0,
-            right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
+      body: Center(
+        child: AspectRatio(
+          aspectRatio: _controller!.value.aspectRatio,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CameraPreview(_controller!),
+              CustomPaint(
+                painter: FacePainter(
+                  _faces,
+                  Size(previewSize.width, previewSize.height),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  color: Colors.black54,
                   child: Text(
                     _faces.length == 1
                         ? "Visage détecté ✅"
                         : _faces.isEmpty
                         ? "Place ton visage dans le cadre"
                         : "Un seul visage autorisé",
+                    textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -282,6 +256,7 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
     }
   }
 }
+
 class InMemoryFaceStorage {
   static final InMemoryFaceStorage _instance = InMemoryFaceStorage._internal();
 
