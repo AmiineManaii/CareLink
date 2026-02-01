@@ -2,12 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 import 'dart:async';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/quick_action_card.dart';
-import '../widgets/date_display_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
@@ -65,11 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentTime = TimeOfDay.now().format(context);
-    final currentDate = DateFormat(
-      'EEEE, d MMMM yyyy',
-      'fr_FR',
-    ).format(DateTime.now());
 
     return Scaffold(
       appBar: CustomAppBar(title: 'Accueil', showBackButton: false),
@@ -78,71 +71,23 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Date and Time
-              DateDisplayCard(time: currentTime, date: currentDate),
-
-              const SizedBox(height: 32),
 
               // SOS Button Section
               Column(
                 children: [
-                  Text(
-                    'Appuyez longuement en cas d\'urgence',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
+                 
                   SOSButton(
                     isPressed: _sosPressed,
                     onPressedDown: _handleSOSPress,
                     onPressedUp: _handleSOSRelease,
                   ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        FontAwesomeIcons.phone,
-                        size: 20,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        FontAwesomeIcons.locationDot,
-                        size: 20,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        FontAwesomeIcons.bell,
-                        size: 20,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Appel + GPS + Notification',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
               ),
 
-              const SizedBox(height: 40),
 
-              // Quick Actions
-              Text(
-                'Accès rapide',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
-              ),
+              
               const SizedBox(height: 16),
 
               GridView.count(
@@ -183,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
 
-              const SizedBox(height: 32),
+              /*const SizedBox(height: 32),
 
               // Recent Activity
               Container(
@@ -224,53 +169,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-            ],
+            */],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildActivityItem({
-    required Color color,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
-                    color: Colors.black87,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+ }

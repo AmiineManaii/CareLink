@@ -1,3 +1,5 @@
+import 'package:care_link/features/face_auth/face_login_screen.dart';
+import 'package:care_link/features/face_auth/face_signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
@@ -29,12 +31,55 @@ class MyApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('fr', 'FR')],
-      home: const MainNavigation(),
+      // home: const MainNavigation(), // Old home
+      home: const FaceAuthTestScreen(), // New test home
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
+class FaceAuthTestScreen extends StatelessWidget {
+  const FaceAuthTestScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Test Face Auth")),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.person_add),
+              label: const Text("Tester Sign Up (Enregistrement)"),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.all(20),
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FaceSignupScreen()),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.login),
+              label: const Text("Tester Sign In (Connexion)"),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.all(20),
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FaceLoginScreen()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Keeping MainNavigation for later reference if needed, but unused for now
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 
@@ -69,8 +114,42 @@ class _MainNavigationState extends State<MainNavigation> {
     Navigator.pop(context);
   }
 
-  @override
+  /*@override
   Widget build(BuildContext context) {
     return HomeScreen(onNavigate: _navigateTo);
+  }*/
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: HomeScreen(onNavigate: _navigateTo),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: "signupBtn",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FaceSignupScreen()),
+              );
+            },
+            child: const Icon(Icons.person_add),
+            tooltip: "Test Signup facial",
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: "loginBtn",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FaceLoginScreen()),
+              );
+            },
+            child: const Icon(Icons.login),
+            tooltip: "Test Login facial",
+          ),
+        ],
+      ),
+    );
   }
 }
