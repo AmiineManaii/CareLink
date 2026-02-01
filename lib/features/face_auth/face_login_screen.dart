@@ -36,13 +36,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
   Timer? _captureTimer;
   double _currentZoom = 1.0;
   double _maxZoom = 1.0;
-  Rect? _lastBox;
-  int _stableFrames = 0;
-  final int _minStableFrames = 8;
-  final double _motionThreshold = 8.0;
-  final double _sizeThreshold = 0.08;
-  bool _ready = false;
-  Size? _imageSize;
 
   @override
   void initState() {
@@ -92,7 +85,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     try {
       final inputImage = _convertCameraImage(image);
       final faces = await _faceDetectorService.detectFaces(inputImage);
-      _imageSize = Size(image.width.toDouble(), image.height.toDouble());
 
       if (!mounted) return;
       setState(() {
@@ -108,11 +100,9 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
         faceCrop = resizeFace(faceCrop, 112);
         faceCrop = img.flipHorizontal(faceCrop);
         final embedding = _faceRecognitionService.getEmbedding(faceCrop);
-        _updateStability(faces.first.boundingBox);
-        _ready = hasSufficientContours(faces.first) && _stableFrames >= _minStableFrames;
-        if (_isCapturing && _ready) {
+        if (_isCapturing) {
           _embeddingBuffer.add(embedding);
-        } else if (_ready) {
+        } else {
           _isCapturing = true;
           _embeddingBuffer = [embedding];
           _startCapture(stored: InMemoryFaceStorage().getEmbedding());
@@ -273,24 +263,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     }
   }
 
-  void _updateStability(Rect box) {
-    if (_lastBox == null) {
-      _lastBox = box;
-      _stableFrames = 0;
-      return;
-    }
-    final dx = (box.center.dx - _lastBox!.center.dx).abs();
-    final dy = (box.center.dy - _lastBox!.center.dy).abs();
-    final dw = (box.width - _lastBox!.width).abs() / _lastBox!.width;
-    final dh = (box.height - _lastBox!.height).abs() / _lastBox!.height;
-    if (dx < _motionThreshold && dy < _motionThreshold && dw < _sizeThreshold && dh < _sizeThreshold) {
-      _stableFrames += 1;
-    } else {
-      _stableFrames = 0;
-    }
-    _lastBox = box;
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_controller == null || !_controller!.value.isInitialized) {
@@ -313,12 +285,10 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
             CustomPaint(
               painter: FacePainter(
                 _faces,
-                _imageSize ??
-                    Size(
-                      _controller!.value.previewSize!.width,
-                      _controller!.value.previewSize!.height,
-                    ),
-                ready: _ready,
+                Size(
+                  _controller!.value.previewSize!.height,
+                  _controller!.value.previewSize!.width,
+                ),
               ),
             ),
           Positioned(

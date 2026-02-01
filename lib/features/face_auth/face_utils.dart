@@ -45,18 +45,3 @@ Float32List imageToByteList(img.Image image) {
   }
   return buffer;
 }
-
-bool hasSufficientContours(Face face) {
-  final types = [
-    FaceContourType.face,
-    FaceContourType.leftEye,
-    FaceContourType.rightEye,
-    FaceContourType.upperLipTop,
-    FaceContourType.lowerLipBottom,
-  ];
-  for (final t in types) {
-    final c = face.contours[t];
-    if (c == null || (c.points.isEmpty)) return false;
-  }
-  return true;
-}

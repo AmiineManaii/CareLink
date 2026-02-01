@@ -35,13 +35,6 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
   Timer? _captureTimer;
   double _currentZoom = 1.0;
   double _maxZoom = 1.0;
-  Rect? _lastBox;
-  int _stableFrames = 0;
-  final int _minStableFrames = 8;
-  final double _motionThreshold = 8.0;
-  final double _sizeThreshold = 0.08;
-  bool _ready = false;
-  Size? _imageSize;
 
   @override
   void initState() {
@@ -83,7 +76,6 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
 
     final inputImage = _convertCameraImage(image);
     final faces = await _faceDetectorService.detectFaces(inputImage);
-    _imageSize = Size(image.width.toDouble(), image.height.toDouble());
 
     if (kDebugMode) {
       print("Faces detected: ${faces.length}");
@@ -105,11 +97,9 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
         faceCrop = img.flipHorizontal(faceCrop);
         final embedding = _faceRecognitionService.getEmbedding(faceCrop);
         _adjustZoomForFace(faces.first);
-        _updateStability(faces.first.boundingBox);
-        _ready = hasSufficientContours(faces.first) && _stableFrames >= _minStableFrames;
-        if (_isCapturing && _ready) {
+        if (_isCapturing) {
           _embeddingBuffer.add(embedding);
-        } else if (_ready) {
+        } else {
           _embeddingBuffer = [embedding];
           _startCapture();
         }
@@ -126,7 +116,7 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
   void _startCapture() {
     _isCapturing = true;
     _captureTimer?.cancel();
-    _captureTimer = Timer(const Duration(seconds: 3), () async {
+    _captureTimer = Timer(const Duration(seconds: 5), () async {
       if (_embeddingBuffer.isNotEmpty) {
         final averaged = _averageEmbeddings(_embeddingBuffer);
         setState(() {
@@ -171,24 +161,6 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
         await _controller!.setZoomLevel(_currentZoom);
       } catch (_) {}
     }
-  }
-
-  void _updateStability(Rect box) {
-    if (_lastBox == null) {
-      _lastBox = box;
-      _stableFrames = 0;
-      return;
-    }
-    final dx = (box.center.dx - _lastBox!.center.dx).abs();
-    final dy = (box.center.dy - _lastBox!.center.dy).abs();
-    final dw = (box.width - _lastBox!.width).abs() / _lastBox!.width;
-    final dh = (box.height - _lastBox!.height).abs() / _lastBox!.height;
-    if (dx < _motionThreshold && dy < _motionThreshold && dw < _sizeThreshold && dh < _sizeThreshold) {
-      _stableFrames += 1;
-    } else {
-      _stableFrames = 0;
-    }
-    _lastBox = box;
   }
   InputImage _convertCameraImage(CameraImage image) {
     final WriteBuffer buffer = WriteBuffer();
@@ -236,24 +208,17 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
     }
 
     final previewSize = _controller!.value.previewSize!;
-    final screenSize = MediaQuery.of(context).size;
-    var scale = screenSize.aspectRatio * _controller!.value.aspectRatio;
-    if (scale < 1) scale = 1 / scale;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Signup – Reconnaissance faciale")),
       body: Stack(
         children: [
-          Transform.scale(
-            scale: scale,
-            child: Center(child: CameraPreview(_controller!)),
-          ),
+          CameraPreview(_controller!),
 
           CustomPaint(
             painter: FacePainter(
               _faces,
-              _imageSize ?? Size(previewSize.width, previewSize.height),
-              ready: _ready,
+              Size(previewSize.height, previewSize.width),
             ),
           ),
 
@@ -315,5 +280,28 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
         const SnackBar(content: Text("Aucun visage valide détecté.")),
       );
     }
+  }
+}
+class InMemoryFaceStorage {
+  static final InMemoryFaceStorage _instance = InMemoryFaceStorage._internal();
+
+  factory InMemoryFaceStorage() {
+    return _instance;
+  }
+
+  InMemoryFaceStorage._internal();
+
+  List<double>? _registeredEmbedding;
+
+  void saveEmbedding(List<double> embedding) {
+    _registeredEmbedding = embedding;
+  }
+
+  List<double>? getEmbedding() {
+    return _registeredEmbedding;
+  }
+
+  bool hasRegisteredFace() {
+    return _registeredEmbedding != null;
   }
 }

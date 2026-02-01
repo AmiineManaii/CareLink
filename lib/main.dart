@@ -1,4 +1,6 @@
+import 'package:care_link/features/face_auth/face_debug_screen.dart';
 import 'package:care_link/features/face_auth/face_login_screen.dart';
+import 'package:care_link/features/face_auth/face_painter_test_screen.dart';
 import 'package:care_link/features/face_auth/face_signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -70,6 +72,33 @@ class FaceAuthTestScreen extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const FaceLoginScreen()),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const FaceDetectionDebugScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text('Mode Debug (Tester contours)'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const FacePainterTestScreen()),
+                );
+              },
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Démarrer le Test'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                textStyle: const TextStyle(fontSize: 18),
               ),
             ),
           ],

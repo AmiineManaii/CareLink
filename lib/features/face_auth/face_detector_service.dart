@@ -3,7 +3,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 class FaceDetectorService {
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
-      performanceMode: FaceDetectorMode.accurate,
+      performanceMode: FaceDetectorMode.fast,
       enableLandmarks: true,
       enableContours: true,
     ),
