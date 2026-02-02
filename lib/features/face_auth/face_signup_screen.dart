@@ -14,6 +14,8 @@ import 'face_detector_service.dart';
 import 'face_painter.dart';
 import 'face_storage.dart';
 import 'face_login_screen.dart';
+import 'package:care_link/main.dart';
+import 'face_compare_service.dart';
 
 class FaceSignupScreen extends StatefulWidget {
   const FaceSignupScreen({super.key});
@@ -233,23 +235,45 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
 
   Future<void> _onRegister() async {
     if (_lastEmbedding != null) {
-      // Sauvegarder l'empreinte
-      InMemoryFaceStorage().saveEmbedding(_lastEmbedding!);
+      final existing = InMemoryFaceStorage().getEmbedding();
+      if (existing == null) {
+        await InMemoryFaceStorage().saveEmbedding(_lastEmbedding!);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Reconnaissance ajoutée")),
+          );
+        }
+      } else {
+        final same = FaceCompareService.match(_lastEmbedding!, existing);
+        if (same) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Cette reconnaissance existe déjà")),
+            );
+          }
+        } else {
+          await InMemoryFaceStorage().saveEmbedding(_lastEmbedding!);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Nouvelle reconnaissance ajoutée")),
+            );
+          }
+        }
+      }
+      await InMemoryFaceStorage().setLoggedIn(true);
       _captureTimer?.cancel();
       try {
         await _controller?.stopImageStream();
         await _controller?.dispose();
       } catch (_) {}
+      setState(() {
+        _controller = null;
+      });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Visage enregistré avec succès !"),
-          duration: Duration(seconds: 1),
-        ),
-      );
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const FaceLoginScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+        (route) => false,
       );
     } else {
       _showErrorSnackBar("Aucun visage valide détecté.");
@@ -313,7 +337,9 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        CameraPreview(_controller!),
+                        _controller != null
+                            ? CameraPreview(_controller!)
+                            : const SizedBox.shrink(),
                         CustomPaint(
                           painter: FacePainter(
                             _faces,
@@ -323,6 +349,7 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
                                   _controller!.value.previewSize!.height,
                                 ),
                             ready: _isCentered && _isCapturing,
+                            mirror: (_camera?.lensDirection == CameraLensDirection.front),
                           ),
                         ),
                       ],

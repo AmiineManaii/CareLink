@@ -13,6 +13,7 @@ import 'package:image/image.dart' as img;
 
 import 'face_detector_service.dart';
 import 'face_painter.dart';
+import 'package:care_link/main.dart';
 
 class FaceLoginScreen extends StatefulWidget {
   const FaceLoginScreen({super.key});
@@ -37,8 +38,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
   Color _statusColor = Colors.white;
   List<List<double>> _embeddingBuffer = [];
   Timer? _captureTimer;
-  double _currentZoom = 1.0;
-  double _maxZoom = 1.0;
   Size? _imageSize;
   DateTime? _captureEndTime;
 
@@ -51,6 +50,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
   }
 
   Future<void> initCamera() async {
+    await InMemoryFaceStorage().initialize();
     final cameras = await availableCameras();
     final frontCamera = cameras.firstWhere(
       (camera) => camera.lensDirection == CameraLensDirection.front,
@@ -95,7 +95,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
       setState(() {
         _faces = faces;
         _isCentered = faces.isNotEmpty ? _checkCentered(faces.first) : false;
-        
       });
 
       if (faces.isNotEmpty) {
@@ -107,7 +106,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
           faceCrop = img.flipHorizontal(faceCrop);
         }
         final embedding = _faceRecognitionService.getEmbedding(faceCrop);
-        
+
         if (_isCapturing) {
           _embeddingBuffer.add(embedding);
         } else {
@@ -180,12 +179,21 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
             if (isMatch) {
               _isSuccess = true;
               await _controller?.stopImageStream();
+              await _controller?.dispose();
               setState(() {
+                _controller = null;
                 _authStatus = "Authentification réussie !";
                 _statusColor = Colors.green;
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Bienvenue ! Connexion réussie.")),
+              );
+              await InMemoryFaceStorage().setLoggedIn(true);
+              if (!mounted) return;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MainNavigation()),
+                (route) => false,
               );
             } else {
               setState(() {
@@ -228,49 +236,57 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
           Expanded(
             child: AspectRatio(
               aspectRatio: _controller!.value.aspectRatio,
-              child: Transform(
-                alignment: Alignment.center,
-                transform: (_camera?.lensDirection == CameraLensDirection.front)
-                    ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
-                    : Matrix4.identity(),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CameraPreview(_controller!),
-                    CustomPaint(
-                      painter: FacePainter(
-                        _faces,
-                        _imageSize ??
-                            Size(
-                              _controller!.value.previewSize!.width,
-                              _controller!.value.previewSize!.height,
-                            ),
-                        ready: _isCentered && _isCapturing,
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        color: Colors.black54,
-                        child: Text(
-                          _isCapturing ? _countdownText() : _authStatus,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _statusColor,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Transform(
+                    alignment: Alignment.center,
+                    transform: (_camera?.lensDirection == CameraLensDirection.front)
+                        ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
+                        : Matrix4.identity(),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _controller != null
+                            ? CameraPreview(_controller!)
+                            : const SizedBox.shrink(),
+                        CustomPaint(
+                          painter: FacePainter(
+                            _faces,
+                            _imageSize ??
+                                Size(
+                                  _controller!.value.previewSize!.width,
+                                  _controller!.value.previewSize!.height,
+                                ),
+                            ready: _isCentered && _isCapturing,
+                            mirror: (_camera?.lensDirection == CameraLensDirection.front),
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
+                      color: Colors.black54,
+                      child: Text(
+                        _isCapturing ? _countdownText() : _authStatus,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _statusColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

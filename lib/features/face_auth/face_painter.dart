@@ -5,8 +5,9 @@ class FacePainter extends CustomPainter {
   final List<Face> faces;
   final Size imageSize;
   final bool ready;
+  final bool mirror;
 
-  FacePainter(this.faces, this.imageSize, {this.ready = false});
+  FacePainter(this.faces, this.imageSize, {this.ready = false, this.mirror = false});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -30,7 +31,7 @@ class FacePainter extends CustomPainter {
       dy = (size.height - imageSize.height * scale) / 2;
     }
     
-    double transformX(double x) => dx + x * scale;
+    double transformX(double x) => dx + (mirror ? (imageSize.width - x) : x) * scale;
     double transformY(double y) => dy + y * scale;
 
     final center = Offset(size.width / 2, size.height / 2);

@@ -9,6 +9,8 @@ import 'screens/accessibility_screen.dart';
 import 'screens/contacts_screen.dart';
 import 'screens/medications_screen.dart';
 import 'screens/family_dashboard_screen.dart';
+import 'features/face_auth/face_storage.dart';
+import 'screens/alerts_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,27 +35,54 @@ class MyApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('fr', 'FR')],
-      // home: const MainNavigation(), // Old home
-      home: const FaceAuthTestScreen(), // New test home
+      home: const StartupGate(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class FaceAuthTestScreen extends StatelessWidget {
-  const FaceAuthTestScreen({super.key});
+class StartupGate extends StatelessWidget {
+  const StartupGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _initializeAndCheck(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final loggedIn = snapshot.data ?? false;
+        if (loggedIn) {
+          return const MainNavigation();
+        }
+        return const AuthLandingScreen();
+      },
+    );
+  }
+
+  Future<bool> _initializeAndCheck() async {
+    await InMemoryFaceStorage().initialize();
+    return await InMemoryFaceStorage().isLoggedIn();
+  }
+}
+
+class AuthLandingScreen extends StatelessWidget {
+  const AuthLandingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Test Face Auth")),
+      appBar: AppBar(title: const Text("Bienvenue")),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.person_add),
-              label: const Text("Tester Sign Up (Enregistrement)"),
+              label: const Text("Créer un compte (Sign Up)"),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.all(20),
               ),
@@ -65,40 +94,13 @@ class FaceAuthTestScreen extends StatelessWidget {
             const SizedBox(height: 20),
             ElevatedButton.icon(
               icon: const Icon(Icons.login),
-              label: const Text("Tester Sign In (Connexion)"),
+              label: const Text("Se connecter (Sign In)"),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.all(20),
               ),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const FaceLoginScreen()),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FaceDetectionDebugScreen()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
-              child: const Text('Mode Debug (Tester contours)'),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FacePainterTestScreen()),
-                );
-              },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Démarrer le Test'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                textStyle: const TextStyle(fontSize: 18),
               ),
             ),
           ],
@@ -132,6 +134,9 @@ class _MainNavigationState extends State<MainNavigation> {
       case 'family':
         screen = FamilyDashboardScreen(onBack: _goBack);
         break;
+      case 'alerts':
+        screen = const AlertsScreen();
+        break;
       default:
         return;
     }
@@ -143,11 +148,12 @@ class _MainNavigationState extends State<MainNavigation> {
     Navigator.pop(context);
   }
 
-  /*@override
+  @override
   Widget build(BuildContext context) {
     return HomeScreen(onNavigate: _navigateTo);
-  }*/
-  @override
+  }
+
+  /*@override
   Widget build(BuildContext context) {
     return Scaffold(
       body: HomeScreen(onNavigate: _navigateTo),
@@ -180,5 +186,5 @@ class _MainNavigationState extends State<MainNavigation> {
         ],
       ),
     );
-  }
+  }*/
 }

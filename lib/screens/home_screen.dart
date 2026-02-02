@@ -123,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: 'Historique',
                     icon: FontAwesomeIcons.triangleExclamation,
                     gradientColors: [Colors.orange[500]!, Colors.orange[600]!],
-                    onTap: () {},
+                    onTap: () => widget.onNavigate('alerts'),
                   ),
                 ],
               ),
