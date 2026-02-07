@@ -1,15 +1,18 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'dart:async';
+import 'package:geolocator/geolocator.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
+
 import '../widgets/custom_app_bar.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/quick_action_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
-
   const HomeScreen({super.key, required this.onNavigate});
 
   @override
@@ -20,47 +23,94 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sosPressed = false;
   Timer? _sosTimer;
 
-  @override
-  void dispose() {
-    _sosTimer?.cancel();
-    super.dispose();
-  }
+  final String smtpHost = 'smtp.gmail.com';
+  final int smtpPort = 587;
+  final String smtpUser = 'your email';
+  final String smtpPassword = 'your password';
+  final String smtpRecipient = 'your email';
 
   void _handleSOSPress() {
-    setState(() {
-      _sosPressed = true;
-    });
-
+    setState(() => _sosPressed = true);
     _sosTimer = Timer(const Duration(seconds: 2), () {
-      // Simuler l'activation SOS
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('🚨 SOS ACTIVÉ!'),
-          content: const Text(
-            '✓ Appel d\'urgence lancé\n✓ SMS envoyé aux contacts\n✓ Position GPS partagée\n✓ Message vocal automatique',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      setState(() {
-        _sosPressed = false;
-      });
+      _sendSOS();
+      setState(() => _sosPressed = false);
     });
   }
 
   void _handleSOSRelease() {
     _sosTimer?.cancel();
-    setState(() {
-      _sosPressed = false;
-    });
+    setState(() => _sosPressed = false);
   }
 
+  Future<void> _sendSOS() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return _showMessage('Localisation désactivée');
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return _showMessage('Permission localisation refusée');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final lat = position.latitude.toStringAsFixed(6);
+      final lon = position.longitude.toStringAsFixed(6);
+
+      final smtpServer = SmtpServer(
+        smtpHost,
+        port: smtpPort,
+        username: smtpUser,
+        password: smtpPassword,
+        ssl: false,
+        allowInsecure: false,
+      );
+
+      final message = Message()
+        ..from = Address(smtpUser, 'CareLink SOS')
+        ..recipients.add(smtpRecipient)
+        ..subject = '🚨 SOS – Alerte Urgente'
+        ..text = '''
+ALERTE SOS 🚨
+
+Latitude  : $lat
+Longitude : $lon
+
+Google Maps :
+https://www.google.com/maps?q=$lat,$lon
+''';
+
+      await send(message, smtpServer);
+      await _showMessage('SOS envoyé avec succès');
+    } catch (e) {
+      await _showMessage('Erreur SMTP : $e');
+    }
+  }
+
+  Future<void> _showMessage(String message) async {
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('SOS'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          )
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
 

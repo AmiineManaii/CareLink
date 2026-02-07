@@ -262,7 +262,6 @@ class _FacePainterTestScreenState extends State<FacePainterTestScreen> {
   Widget build(BuildContext context) {
     // Calcul de la taille responsive
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final paintWidth = screenWidth * 0.85;
     final paintHeight = paintWidth * 1.25;
 

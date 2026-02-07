@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:io';
 import 'dart:async';
 import 'dart:math' as math;
@@ -13,7 +15,6 @@ import 'package:image/image.dart' as img;
 import 'face_detector_service.dart';
 import 'face_painter.dart';
 import 'face_storage.dart';
-import 'face_login_screen.dart';
 import 'package:care_link/main.dart';
 import 'face_compare_service.dart';
 

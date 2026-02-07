@@ -1,6 +1,6 @@
-import 'package:care_link/features/face_auth/face_debug_screen.dart';
+// ignore_for_file: deprecated_member_use
+
 import 'package:care_link/features/face_auth/face_login_screen.dart';
-import 'package:care_link/features/face_auth/face_painter_test_screen.dart';
 import 'package:care_link/features/face_auth/face_signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
