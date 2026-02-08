@@ -3,17 +3,21 @@
 import 'package:care_link/features/face_auth/face_login_screen.dart';
 import 'package:care_link/features/face_auth/face_signup_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'screens/home_screen.dart';
-import 'screens/accessibility_screen.dart';
-import 'screens/contacts_screen.dart';
-import 'screens/medications_screen.dart';
-import 'screens/family_dashboard_screen.dart';
+import 'screens/elder/home_screen.dart';
+import 'screens/elder/accessibility_screen.dart';
+import 'screens/elder/contacts_screen.dart';
+import 'screens/elder/medications_screen.dart';
+import 'screens/elder/family_dashboard_screen.dart';
 import 'features/face_auth/face_storage.dart';
-import 'screens/alerts_screen.dart';
-import 'screens/caregiver_login_screen.dart';
+import 'screens/elder/alerts_screen.dart';
+import 'screens/caregiver/caregiver_login_screen.dart';
+import 'screens/caregiver/caregiver_navigation.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 
@@ -57,7 +61,12 @@ class StartupGate extends StatelessWidget {
         }
         final loggedIn = snapshot.data ?? false;
         if (loggedIn) {
-          return const MainNavigation();
+          final role = InMemoryFaceStorage().getRole();
+          if (role == 'aidant') {
+            return const CaregiverNavigation();
+          } else {
+            return const ElderlyNavigation();
+          }
         }
         return const AuthLandingScreen();
       },
@@ -140,7 +149,7 @@ class AuthLandingScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 // Section Connexion (moitié inférieure)
                 Expanded(
                   flex: 2,
@@ -185,15 +194,22 @@ class AuthLandingScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Séparateur
                         Row(
                           children: [
-                            Expanded(child: Divider(color: Colors.grey[400], thickness: 1)),
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey[400],
+                                thickness: 1,
+                              ),
+                            ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 15),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                              ),
                               child: Text(
                                 "OU",
                                 style: TextStyle(
@@ -203,12 +219,17 @@ class AuthLandingScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Expanded(child: Divider(color: Colors.grey[400], thickness: 1)),
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey[400],
+                                thickness: 1,
+                              ),
+                            ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Bouton Se connecter
                         SizedBox(
                           width: double.infinity,
@@ -222,7 +243,10 @@ class AuthLandingScreen extends StatelessWidget {
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.blue[600],
-                              side: BorderSide(color: Colors.blue[600]!, width: 2.5),
+                              side: BorderSide(
+                                color: Colors.blue[600]!,
+                                width: 2.5,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),
                               ),
@@ -230,7 +254,11 @@ class AuthLandingScreen extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.login, size: 32, color: Colors.blue[600]),
+                                Icon(
+                                  Icons.login,
+                                  size: 32,
+                                  color: Colors.blue[600],
+                                ),
                                 const SizedBox(width: 15),
                                 Text(
                                   "Se connecter",
@@ -244,7 +272,7 @@ class AuthLandingScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 30),
                       ],
                     ),
@@ -265,12 +293,20 @@ class AuthLandingScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.admin_panel_settings, size: 18),
-                label: const Text('Aidant', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Aidant',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.blue[900],
                   backgroundColor: Colors.white.withOpacity(0.9),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
             ),
@@ -282,14 +318,14 @@ class AuthLandingScreen extends StatelessWidget {
 }
 
 // Keeping MainNavigation for later reference if needed, but unused for now
-class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+class ElderlyNavigation extends StatefulWidget {
+  const ElderlyNavigation({super.key});
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
+  State<ElderlyNavigation> createState() => _ElderlyNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
+class _ElderlyNavigationState extends State<ElderlyNavigation> {
   void _navigateTo(String view) {
     Widget screen;
     switch (view) {

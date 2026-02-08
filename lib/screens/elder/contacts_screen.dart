@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../widgets/custom_app_bar.dart';
-import '../widgets/info_card.dart';
-import '../models/contact.dart';
+import '../../widgets/custom_app_bar.dart';
+import '../../widgets/info_card.dart';
+import '../../models/contact.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});

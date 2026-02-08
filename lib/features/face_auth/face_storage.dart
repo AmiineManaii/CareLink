@@ -11,6 +11,7 @@ class InMemoryFaceStorage {
   InMemoryFaceStorage._internal();
 
   List<double>? _registeredEmbedding;
+  String? _role;
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
@@ -21,6 +22,7 @@ class InMemoryFaceStorage {
           .toList();
       _registeredEmbedding = list;
     }
+    _role = prefs.getString('role');
   }
 
   Future<void> saveEmbedding(List<double> embedding) async {
@@ -47,6 +49,16 @@ class InMemoryFaceStorage {
     await prefs.setBool('logged_in', value);
   }
 
+  String? getRole() {
+    return _role;
+  }
+
+  Future<void> setRole(String role) async {
+    _role = role;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', role);
+  }
+
   Future<void> clearEmbedding() async {
     _registeredEmbedding = null;
     final prefs = await SharedPreferences.getInstance();
@@ -58,5 +70,6 @@ class InMemoryFaceStorage {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('face_embedding');
     await prefs.remove('logged_in');
+    await prefs.remove('role');
   }
 }

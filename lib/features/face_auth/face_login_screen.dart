@@ -194,7 +194,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
               if (!mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const MainNavigation()),
+                MaterialPageRoute(builder: (_) => const ElderlyNavigation()),
                 (route) => false,
               );
             } else {
@@ -243,7 +243,8 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
                 children: [
                   Transform(
                     alignment: Alignment.center,
-                    transform: (_camera?.lensDirection == CameraLensDirection.front)
+                    transform:
+                        (_camera?.lensDirection == CameraLensDirection.front)
                         ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
                         : Matrix4.identity(),
                     child: Stack(
@@ -261,7 +262,9 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
                                   _controller!.value.previewSize!.height,
                                 ),
                             ready: _isCentered && _isCapturing,
-                            mirror: (_camera?.lensDirection == CameraLensDirection.front),
+                            mirror:
+                                (_camera?.lensDirection ==
+                                CameraLensDirection.front),
                           ),
                         ),
                       ],

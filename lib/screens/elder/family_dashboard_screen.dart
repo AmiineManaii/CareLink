@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../widgets/stat_card.dart';
+import '../../widgets/stat_card.dart';
 
 class FamilyDashboardScreen extends StatelessWidget {
   final VoidCallback onBack;

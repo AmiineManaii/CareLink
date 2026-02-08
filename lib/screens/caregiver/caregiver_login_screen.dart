@@ -1,4 +1,5 @@
-import 'package:care_link/main.dart';
+import 'package:care_link/screens/caregiver/caregiver_navigation.dart';
+import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:flutter/material.dart';
 import 'caregiver_signup_screen.dart';
 
@@ -20,18 +21,20 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
       setState(() {
         _isLoading = true;
       });
-      
+
       // Simulation d'un délai réseau
       await Future.delayed(const Duration(seconds: 1));
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
         // Navigation vers la navigation principale
+        await InMemoryFaceStorage().setRole('aidant');
+        await InMemoryFaceStorage().setLoggedIn(true);
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const MainNavigation()), 
+          MaterialPageRoute(builder: (context) => const CaregiverNavigation()),
           (route) => false,
         );
       }
@@ -56,11 +59,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
-                Icons.health_and_safety,
-                size: 80,
-                color: Colors.blue,
-              ),
+              const Icon(Icons.health_and_safety, size: 80, color: Colors.blue),
               const SizedBox(height: 32),
               TextFormField(
                 controller: _emailController,

@@ -6,10 +6,11 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import '../widgets/custom_app_bar.dart';
-import '../widgets/sos_button.dart';
-import '../widgets/quick_action_card.dart';
+import '../../widgets/custom_app_bar.dart';
+import '../../widgets/sos_button.dart';
+import '../../widgets/quick_action_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
@@ -23,11 +24,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sosPressed = false;
   Timer? _sosTimer;
 
-  final String smtpHost = 'smtp.gmail.com';
-  final int smtpPort = 587;
-  final String smtpUser = 'your email';
-  final String smtpPassword = 'your password';
-  final String smtpRecipient = 'your email';
+  final String smtpHost = dotenv.env['SMTP_HOST'] ?? 'smtp.gmail.com';
+  final int smtpPort = int.tryParse(dotenv.env['SMTP_PORT'] ?? '') ?? 587;
+  final String smtpUser = dotenv.env['SMTP_USER'] ?? '';
+  final String smtpPassword = dotenv.env['SMTP_PASS'] ?? '';
+  final String smtpRecipient = dotenv.env['SMTP_TO'] ?? '';
 
   void _handleSOSPress() {
     setState(() => _sosPressed = true);
@@ -65,6 +66,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final lat = position.latitude.toStringAsFixed(6);
       final lon = position.longitude.toStringAsFixed(6);
 
+      if (smtpUser.isEmpty || smtpPassword.isEmpty || smtpRecipient.isEmpty) {
+        return _showMessage('Configuration SMTP manquante');
+      }
+
       final smtpServer = SmtpServer(
         smtpHost,
         port: smtpPort,
@@ -78,7 +83,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ..from = Address(smtpUser, 'CareLink SOS')
         ..recipients.add(smtpRecipient)
         ..subject = '🚨 SOS – Alerte Urgente'
-        ..text = '''
+        ..text =
+            '''
 ALERTE SOS 🚨
 
 Latitude  : $lat
@@ -106,14 +112,14 @@ https://www.google.com/maps?q=$lat,$lon
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('OK'),
-          )
+          ),
         ],
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: CustomAppBar(title: 'Accueil', showBackButton: false),
       body: RefreshIndicator(
@@ -123,21 +129,17 @@ https://www.google.com/maps?q=$lat,$lon
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-
               // SOS Button Section
               Column(
                 children: [
-                 
                   SOSButton(
                     isPressed: _sosPressed,
                     onPressedDown: _handleSOSPress,
                     onPressedUp: _handleSOSRelease,
                   ),
-                  ],
+                ],
               ),
 
-
-              
               const SizedBox(height: 16),
 
               GridView.count(
@@ -219,11 +221,11 @@ https://www.google.com/maps?q=$lat,$lon
                   ],
                 ),
               ),
-            */],
+            */
+            ],
           ),
         ),
       ),
     );
   }
-
- }
+}

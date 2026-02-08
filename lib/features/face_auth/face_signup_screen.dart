@@ -262,6 +262,7 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
         }
       }
       await InMemoryFaceStorage().setLoggedIn(true);
+      await InMemoryFaceStorage().setRole('personne_agee');
       _captureTimer?.cancel();
       try {
         await _controller?.stopImageStream();
@@ -273,7 +274,7 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const MainNavigation()),
+        MaterialPageRoute(builder: (_) => const ElderlyNavigation()),
         (route) => false,
       );
     } else {
@@ -350,7 +351,9 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
                                   _controller!.value.previewSize!.height,
                                 ),
                             ready: _isCentered && _isCapturing,
-                            mirror: (_camera?.lensDirection == CameraLensDirection.front),
+                            mirror:
+                                (_camera?.lensDirection ==
+                                CameraLensDirection.front),
                           ),
                         ),
                       ],

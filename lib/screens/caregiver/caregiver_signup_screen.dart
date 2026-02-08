@@ -1,3 +1,4 @@
+import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:flutter/material.dart';
 
 class CaregiverSignupScreen extends StatefulWidget {
@@ -37,7 +38,8 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
         setState(() {
           _isLoading = false;
         });
-        
+
+        await InMemoryFaceStorage().setRole('aidant');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Compte créé avec succès !')),
         );
@@ -124,10 +126,7 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: _genders.map((gender) {
-                  return DropdownMenuItem(
-                    value: gender,
-                    child: Text(gender),
-                  );
+                  return DropdownMenuItem(value: gender, child: Text(gender));
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
