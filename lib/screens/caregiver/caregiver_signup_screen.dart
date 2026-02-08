@@ -1,4 +1,5 @@
 import 'package:care_link/features/face_auth/face_storage.dart';
+import 'package:care_link/services/api_service.dart';
 import 'package:flutter/material.dart';
 
 class CaregiverSignupScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _elderCodeController = TextEditingController();
   String? _selectedGender;
   bool _isLoading = false;
 
@@ -31,8 +33,15 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
         _isLoading = true;
       });
 
-      // Simulation d'un délai réseau
-      await Future.delayed(const Duration(seconds: 1));
+      await ApiService().caregiverSignup(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        phone: _phoneController.text.trim(),
+        gender: _selectedGender!,
+        elderCode: _elderCodeController.text.trim().isEmpty
+            ? null
+            : _elderCodeController.text.trim(),
+      );
 
       if (mounted) {
         setState(() {
@@ -53,6 +62,7 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
+    _elderCodeController.dispose();
     super.dispose();
   }
 
@@ -113,6 +123,22 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Veuillez entrer votre numéro de téléphone';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _elderCodeController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Code Elder (6 chiffres)',
+                  prefixIcon: Icon(Icons.link),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value != null && value.isNotEmpty && value.length != 6) {
+                    return 'Code à 6 chiffres';
                   }
                   return null;
                 },

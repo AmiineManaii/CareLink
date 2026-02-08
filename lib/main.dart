@@ -17,7 +17,11 @@ import 'screens/caregiver/caregiver_navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: "assets/.env");
+  } catch (e) {
+    debugPrint("dotenv load error: $e");
+  }
   runApp(const MyApp());
 }
 

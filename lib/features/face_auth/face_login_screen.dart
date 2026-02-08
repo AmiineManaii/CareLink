@@ -6,7 +6,6 @@ import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:care_link/features/face_auth/face_recognition_service.dart';
 import 'package:care_link/features/face_auth/face_utils.dart';
-import 'package:care_link/features/face_auth/face_compare_service.dart';
 import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +15,7 @@ import 'package:image/image.dart' as img;
 import 'face_detector_service.dart';
 import 'face_painter.dart';
 import 'package:care_link/main.dart';
+import 'package:care_link/services/api_service.dart';
 
 class FaceLoginScreen extends StatefulWidget {
   const FaceLoginScreen({super.key});
@@ -174,36 +174,43 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
     _captureTimer = Timer(const Duration(seconds: 3), () async {
       if (_embeddingBuffer.isNotEmpty) {
         final averaged = _averageEmbeddings(_embeddingBuffer);
-        final storedEmbedding = stored ?? InMemoryFaceStorage().getEmbedding();
-        if (storedEmbedding != null) {
-          final isMatch = FaceCompareService.match(averaged, storedEmbedding);
-          if (mounted) {
-            if (isMatch) {
-              _isSuccess = true;
-              await _controller?.stopImageStream();
-              await _controller?.dispose();
-              setState(() {
-                _controller = null;
-                _authStatus = "Authentification réussie !";
-                _statusColor = Colors.green;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Bienvenue ! Connexion réussie.")),
-              );
-              await InMemoryFaceStorage().setLoggedIn(true);
-              if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const ElderlyNavigation()),
-                (route) => false,
-              );
-            } else {
-              setState(() {
-                _authStatus = "Visage non reconnu";
-                _statusColor = Colors.red;
-              });
-            }
-          }
+        final res = await ApiService().elderSigninFace(embedding: averaged);
+        final elderId = res['elderId']?.toString() ?? '';
+        final elderCode = res['code']?.toString() ?? '';
+        if (elderId.isNotEmpty) {
+          _isSuccess = true;
+          final ctrl = _controller;
+          setState(() {
+            _controller = null;
+            _authStatus = "Authentification réussie !";
+            _statusColor = Colors.green;
+          });
+          try {
+            await ctrl?.stopImageStream();
+          } catch (_) {}
+          try {
+            await ctrl?.dispose();
+          } catch (_) {}
+          await InMemoryFaceStorage().setLoggedIn(true);
+          await InMemoryFaceStorage().setElderId(elderId);
+          await InMemoryFaceStorage().setElderCode(elderCode);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Utilisateur reconnu")));
+          if (!mounted) return;
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const ElderlyNavigation()),
+            (route) => false,
+          );
+        } else {
+          setState(() {
+            _authStatus = "Visage non reconnu";
+            _statusColor = Colors.red;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Aucun utilisateur correspondant")),
+          );
         }
       }
       _isCapturing = false;
@@ -250,7 +257,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _controller != null
+                        _controller != null && _controller!.value.isInitialized
                             ? CameraPreview(_controller!)
                             : const SizedBox.shrink(),
                         CustomPaint(

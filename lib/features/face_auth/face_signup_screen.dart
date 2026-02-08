@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:care_link/features/face_auth/face_recognition_service.dart';
 import 'package:care_link/features/face_auth/face_utils.dart';
+import 'package:care_link/main.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
@@ -15,8 +16,8 @@ import 'package:image/image.dart' as img;
 import 'face_detector_service.dart';
 import 'face_painter.dart';
 import 'face_storage.dart';
-import 'package:care_link/main.dart';
-import 'face_compare_service.dart';
+import 'package:care_link/services/api_service.dart';
+import 'package:care_link/screens/elder/elder_profile_completion_screen.dart';
 
 class FaceSignupScreen extends StatefulWidget {
   const FaceSignupScreen({super.key});
@@ -236,47 +237,60 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
 
   Future<void> _onRegister() async {
     if (_lastEmbedding != null) {
-      final existing = InMemoryFaceStorage().getEmbedding();
-      if (existing == null) {
-        await InMemoryFaceStorage().saveEmbedding(_lastEmbedding!);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Reconnaissance ajoutée")),
-          );
-        }
-      } else {
-        final same = FaceCompareService.match(_lastEmbedding!, existing);
-        if (same) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Cette reconnaissance existe déjà")),
-            );
-          }
-        } else {
-          await InMemoryFaceStorage().saveEmbedding(_lastEmbedding!);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Nouvelle reconnaissance ajoutée")),
-            );
-          }
-        }
-      }
-      await InMemoryFaceStorage().setLoggedIn(true);
-      await InMemoryFaceStorage().setRole('personne_agee');
-      _captureTimer?.cancel();
+      Map<String, dynamic> result = {};
       try {
-        await _controller?.stopImageStream();
-        await _controller?.dispose();
-      } catch (_) {}
+        result = await ApiService().elderSignupFace(
+          embedding: _lastEmbedding!,
+          profile: {},
+        );
+      } catch (e) {
+        _showErrorSnackBar("Erreur réseau, réessayez");
+        _cancelCapture();
+        return;
+      }
+      final elderId = result['elderId']?.toString() ?? '';
+      final elderCode = result['code']?.toString() ?? '';
+      final created = result['created'] == true;
+      if (elderId.isNotEmpty) {
+        await InMemoryFaceStorage().saveEmbedding(_lastEmbedding!);
+        await InMemoryFaceStorage().setElderId(elderId);
+        await InMemoryFaceStorage().setElderCode(elderCode);
+      }
+      _captureTimer?.cancel();
+      final ctrl = _controller;
       setState(() {
         _controller = null;
       });
+      try {
+        await ctrl?.stopImageStream();
+      } catch (_) {}
+      try {
+        await ctrl?.dispose();
+      } catch (_) {}
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const ElderlyNavigation()),
-        (route) => false,
-      );
+      if (created) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Nouvel utilisateur créé")),
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ElderProfileCompletionScreen(elderId: elderId),
+          ),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Utilisateur existant reconnu")),
+        );
+        await InMemoryFaceStorage().setRole('personne_agee');
+        await InMemoryFaceStorage().setLoggedIn(true);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const ElderlyNavigation()),
+          (route) => false,
+        );
+      }
     } else {
       _showErrorSnackBar("Aucun visage valide détecté.");
     }
@@ -339,7 +353,7 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _controller != null
+                        _controller != null && _controller!.value.isInitialized
                             ? CameraPreview(_controller!)
                             : const SizedBox.shrink(),
                         CustomPaint(
