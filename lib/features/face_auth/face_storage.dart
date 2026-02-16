@@ -14,6 +14,7 @@ class InMemoryFaceStorage {
   String? _role;
   String? _elderId;
   String? _elderCode;
+  String? _caregiverId;
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
@@ -27,6 +28,7 @@ class InMemoryFaceStorage {
     _role = prefs.getString('role');
     _elderId = prefs.getString('elder_id');
     _elderCode = prefs.getString('elder_code');
+    _caregiverId = prefs.getString('caregiver_id');
   }
 
   Future<void> saveEmbedding(List<double> embedding) async {
@@ -83,6 +85,16 @@ class InMemoryFaceStorage {
     await prefs.setString('elder_code', code);
   }
 
+  String? getCaregiverId() {
+    return _caregiverId;
+  }
+
+  Future<void> setCaregiverId(String id) async {
+    _caregiverId = id;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('caregiver_id', id);
+  }
+
   Future<void> clearEmbedding() async {
     _registeredEmbedding = null;
     final prefs = await SharedPreferences.getInstance();
@@ -97,5 +109,6 @@ class InMemoryFaceStorage {
     await prefs.remove('role');
     await prefs.remove('elder_id');
     await prefs.remove('elder_code');
+    await prefs.remove('caregiver_id');
   }
 }

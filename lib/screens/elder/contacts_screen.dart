@@ -3,6 +3,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/info_card.dart';
 import '../../models/contact.dart';
+import '../../features/face_auth/face_storage.dart';
+import '../../services/api_service.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'dart:async';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -12,6 +16,101 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
+  String? _elderCode;
+  Map<String, dynamic>? _caregiver;
+  bool _loadingCaregiver = false;
+  IO.Socket? _socket;
+  Timer? _relativeTimer;
+
+  String _formatLastSeen(String iso) {
+    try {
+      final dt = DateTime.tryParse(iso)?.toLocal();
+      if (dt == null) return 'Hors ligne';
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 2) return 'Vu il y a ${diff.inSeconds.clamp(0, 119)} s';
+      if (diff.inHours < 1) return 'Vu il y a ${diff.inMinutes} min';
+      if (diff.inHours < 24) return 'Vu il y a ${diff.inHours} h';
+      return 'Vu le ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} à ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return 'Hors ligne';
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCaregiverInfo();
+    _initSocket();
+    _relativeTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && _caregiver != null && _caregiver!['lastActiveAt'] != null) {
+        setState(() {});
+      }
+    });
+  }
+
+  Future<void> _fetchCaregiverInfo() async {
+    final elderId = InMemoryFaceStorage().getElderId();
+    if (elderId == null) return;
+
+    setState(() {
+      _loadingCaregiver = true;
+    });
+
+    try {
+      final data = await ApiService().getElderCaregiver(elderId);
+      if (mounted) {
+        setState(() {
+          _elderCode = data['code'];
+          _caregiver = data['caregiver'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching caregiver info: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingCaregiver = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _initSocket() async {
+    final elderId = InMemoryFaceStorage().getElderId();
+    if (elderId == null) return;
+    final baseUrl = ApiService().baseUrl;
+    try {
+      _socket = IO.io(
+        baseUrl,
+        IO.OptionBuilder()
+            .setTransports(['websocket'])
+            .disableAutoConnect()
+            .build(),
+      );
+      _socket!.onConnect((_) {
+        _socket!.emit('registerElder', {'elderId': elderId});
+      });
+      _socket!.on('caregiverPresence', (data) {
+        if (!mounted) return;
+        setState(() {
+          _caregiver = _caregiver ?? {};
+          _caregiver!['online'] = data['online'] == true;
+          _caregiver!['lastActiveAt'] = data['lastActiveAt'];
+        });
+      });
+      _socket!.connect();
+    } catch (e) {
+      debugPrint('Socket error (elder): $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _relativeTimer?.cancel();
+    _socket?.dispose();
+    super.dispose();
+  }
+
   List<Contact> contacts = [
     Contact(
       id: 1,
@@ -163,6 +262,67 @@ class _ContactsScreenState extends State<ContactsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            // Caregiver Link / Code
+            if (_loadingCaregiver)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 24.0),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_caregiver != null)
+            
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: InfoCard(
+                  icon: FontAwesomeIcons.userNurse,
+                  title:
+                      '${_caregiver!['firstName'] ?? 'Mon'} ${_caregiver!['lastName'] ?? 'Aidant'}',
+                  subtitle: _caregiver!['online'] == true
+                      ? 'En ligne'
+                      : (_caregiver!['lastActiveAt'] != null
+                          ? _formatLastSeen(_caregiver!['lastActiveAt'])
+                          : 'Hors ligne'),
+                  gradientColors: [Colors.green[500]!, Colors.green[600]!],
+                  onTap: () {
+                    // Show details dialog
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text(
+                          '${_caregiver!['firstName'] ?? ''} ${_caregiver!['lastName'] ?? ''}',
+                        ),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_caregiver!['phone'] != null)
+                              Text('Tél: ${_caregiver!['phone']}'),
+                            if (_caregiver!['email'] != null)
+                              Text('Email: ${_caregiver!['email']}'),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Fermer'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              )
+            else if (_elderCode != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: InfoCard(
+                  icon: FontAwesomeIcons.link,
+                  title: 'Code de liaison: $_elderCode',
+                  subtitle: 'Partagez ce code avec votre aidant',
+                  gradientColors: [Colors.orange[500]!, Colors.orange[600]!],
+                  onTap: () {},
+                ),
+              ),
+
             // Voice Command
             InfoCard(
               icon: FontAwesomeIcons.volumeHigh,
@@ -196,9 +356,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ...favorites
-                    .map((contact) => _buildFavoriteContact(contact))
-                    
+                ...favorites.map((contact) => _buildFavoriteContact(contact)),
               ],
             ),
 
@@ -226,9 +384,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ...otherContacts
-                    .map((contact) => _buildOtherContact(contact))
-                   
+                ...otherContacts.map((contact) => _buildOtherContact(contact)),
               ],
             ),
 

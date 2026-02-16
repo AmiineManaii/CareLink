@@ -6,7 +6,7 @@ const Elder = require("../models/elder");
 
 router.post("/signup", async (req, res) => {
   try {
-    const { email, password, phone, gender, elderCode } = req.body;
+    const { email, password, phone, gender, elderCode, firstName, lastName } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "email et password requis" });
     }
@@ -25,6 +25,8 @@ router.post("/signup", async (req, res) => {
       passwordHash: hash,
       phone,
       gender,
+      firstName,
+      lastName,
       linkedElderId,
     });
     res.json({ caregiverId: caregiver._id, linkedElderId });
@@ -41,6 +43,8 @@ router.post("/signin", async (req, res) => {
     if (!cg) return res.status(401).json({ error: "invalid_credentials" });
     const ok = await bcrypt.compare(password, cg.passwordHash);
     if (!ok) return res.status(401).json({ error: "invalid_credentials" });
+    cg.lastActiveAt = new Date();
+    await cg.save();
     res.json({ caregiverId: cg._id, linkedElderId: cg.linkedElderId || null });
   } catch (e) {
     console.error(e);

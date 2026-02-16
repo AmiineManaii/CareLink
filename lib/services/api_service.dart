@@ -13,27 +13,23 @@ class ApiService {
     required List<double> embedding,
     required Map<String, dynamic> profile,
   }) async {
-    final resp = await http
-        .post(
+    final resp = await http.post(
       Uri.parse('$baseUrl/elder/signup-face'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'embedding': embedding, 'profile': profile}),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
-      }
-    
-       
- 
+  }
 
   Future<Map<String, dynamic>> elderSigninFace({
     required List<double> embedding,
   }) async {
     final resp = await http
         .post(
-      Uri.parse('$baseUrl/elder/signin-face'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'embedding': embedding}),
-    )
+          Uri.parse('$baseUrl/elder/signin-face'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'embedding': embedding}),
+        )
         .timeout(const Duration(seconds: 10));
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
@@ -44,12 +40,49 @@ class ApiService {
   }) async {
     final resp = await http
         .post(
-      Uri.parse('$baseUrl/elder/update-profile'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'elderId': elderId, 'profile': profile}),
-    )
+          Uri.parse('$baseUrl/elder/update-profile'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'elderId': elderId, 'profile': profile}),
+        )
         .timeout(const Duration(seconds: 10));
     return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getElderCaregiver(String elderId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/elder/$elderId/caregiver'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to load caregiver info');
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyElderCode(String code) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/elder/verify-code/$code'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+       // Return valid: false instead of throwing if it's just not found/invalid
+       return {'valid': false, 'message': 'Erreur serveur'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getElderProfile(String elderId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/elder/$elderId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to load elder profile');
+    }
   }
 
   Future<Map<String, dynamic>> caregiverSignup({
@@ -57,6 +90,8 @@ class ApiService {
     required String password,
     required String phone,
     required String gender,
+    String? firstName,
+    String? lastName,
     String? elderCode,
   }) async {
     final resp = await http.post(
@@ -67,6 +102,8 @@ class ApiService {
         'password': password,
         'phone': phone,
         'gender': gender,
+        'firstName': firstName,
+        'lastName': lastName,
         'elderCode': elderCode,
       }),
     );

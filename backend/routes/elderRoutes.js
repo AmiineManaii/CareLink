@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Elder = require("../models/elder");
+const Caregiver = require("../models/caregiver");
 
 function cosineSimilarity(a, b) {
   let dot = 0,
@@ -122,6 +123,71 @@ router.post("/update-profile", async (req, res) => {
       return res.status(404).json({ error: "elder introuvable" });
     }
     res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/verify-code/:code", async (req, res) => {
+  try {
+    const { code } = req.params;
+    const elder = await Elder.findOne({ relationCode: code });
+    if (elder) {
+      return res.json({ 
+        valid: true, 
+        message: "Code valide",
+        elder: {
+            firstName: elder.profile?.firstName,
+            lastName: elder.profile?.lastName,
+        }
+      });
+    } else {
+      return res.json({ valid: false, message: "Code invalide" });
+    }
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    const elder = await Elder.findById(req.params.id);
+    if (!elder) return res.status(404).json({ error: "Elder not found" });
+    res.json(elder);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/:id/caregiver", async (req, res) => {
+  try {
+    const elder = await Elder.findById(req.params.id);
+    if (!elder) return res.status(404).json({ error: "Elder not found" });
+
+     const caregiver = await Caregiver.findOne({ linkedElderId: elder._id });
+     let online = false;
+     let lastActiveAt = null;
+     if (caregiver && caregiver.lastActiveAt) {
+       lastActiveAt = caregiver.lastActiveAt;
+       const diff = Date.now() - new Date(caregiver.lastActiveAt).getTime();
+       online = diff < 120000; // 2 minutes de seuil
+     }
+    
+    res.json({
+      code: elder.relationCode,
+       caregiver: caregiver ? {
+        firstName: caregiver.firstName,
+        lastName: caregiver.lastName,
+        phone: caregiver.phone,
+        email: caregiver.email,
+         gender: caregiver.gender,
+         online,
+         lastActiveAt
+      } : null
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "server_error" });
