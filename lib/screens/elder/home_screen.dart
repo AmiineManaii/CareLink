@@ -7,6 +7,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../features/face_auth/face_storage.dart';
+import '../../services/api_service.dart';
 
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/sos_button.dart';
@@ -65,6 +67,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final lat = position.latitude.toStringAsFixed(6);
       final lon = position.longitude.toStringAsFixed(6);
+
+      final elderId = InMemoryFaceStorage().getElderId();
+      if (elderId != null) {
+        try {
+          await ApiService().createSosAlert(
+            elderId: elderId,
+            latitude: lat,
+            longitude: lon,
+          );
+        } catch (e) {
+          // On ignore l'erreur d'alerte pour ne pas bloquer l'email
+        }
+      }
 
       if (smtpUser.isEmpty || smtpPassword.isEmpty || smtpRecipient.isEmpty) {
         return _showMessage('Configuration SMTP manquante');

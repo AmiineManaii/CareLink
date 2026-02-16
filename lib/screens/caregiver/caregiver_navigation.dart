@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:care_link/main.dart';
 import 'caregiver_home_screen.dart';
+import 'caregiver_alerts_screen.dart';
 
 class CaregiverNavigation extends StatefulWidget {
   const CaregiverNavigation({super.key});
@@ -15,7 +16,7 @@ class _CaregiverNavigationState extends State<CaregiverNavigation> {
 
   final List<Widget> _screens = [
     const CaregiverHomeScreen(),
-    const Center(child: Text("Notifications (A venir)")),
+    const CaregiverAlertsScreen(),
     const Center(child: Text("Profil Aidant (A venir)")),
   ];
 

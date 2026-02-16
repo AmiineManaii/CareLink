@@ -121,4 +121,39 @@ class ApiService {
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
+
+  Future<void> createSosAlert({
+    required String elderId,
+    required String latitude,
+    required String longitude,
+  }) async {
+    await http.post(
+      Uri.parse('$baseUrl/alerts/sos'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'elderId': elderId,
+        'latitude': latitude,
+        'longitude': longitude,
+      }),
+    );
+  }
+
+  Future<List<dynamic>> getCaregiverAlerts(String caregiverId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/alerts/caregiver/$caregiverId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to load alerts');
+    }
+  }
+
+  Future<void> markAlertAsRead(String alertId) async {
+    await http.post(
+      Uri.parse('$baseUrl/alerts/$alertId/read'),
+      headers: {'Content-Type': 'application/json'},
+    );
+  }
 }

@@ -7,7 +7,9 @@ require("dotenv").config();
 const userRoutes = require("./routes/userRoutes");
 const elderRoutes = require("./routes/elderRoutes");
 const caregiverRoutes = require("./routes/caregiverRoutes");
+const alertRoutes = require("./routes/alertRoutes");
 const Caregiver = require("./models/caregiver");
+const Alert = require("./models/alert");
 
 const app = express();
 const server = http.createServer(app);
@@ -20,6 +22,7 @@ app.use(express.json());
 app.use("/users", userRoutes);
 app.use("/elder", elderRoutes);
 app.use("/caregiver", caregiverRoutes);
+app.use("/alerts", alertRoutes);
 
 const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/flutterDB";
 mongoose
