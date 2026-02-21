@@ -104,7 +104,6 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
       _socket!.on('elderPresence', (data) {
         if (!mounted) return;
         setState(() {
-          
           //print("data: ${data['online']}");
           _elderOnline = data['online'] == true;
           final last = data['lastActiveAt'];
@@ -409,9 +408,9 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                       ),
                     )
                   else if (_elderId != null && _elderProfile != null)
-                    _buildConnectedContent()
+                    const CaregiverHomeConnectedContent()
                   else
-                    _buildNoElderCard(),
+                    const CaregiverNoElderCard(),
                 ]),
               ),
             ),
@@ -764,6 +763,272 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
   }
 }
 
+/// Contenu principal de l’écran d’accueil aidant quand un senior est lié.
+class CaregiverHomeConnectedContent extends StatelessWidget {
+  const CaregiverHomeConnectedContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        SizedBox(height: 24),
+        Row(
+          children: [
+            Icon(Icons.flash_on, color: Colors.orange, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Actions rapides',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        SizedBox(height: 16),
+        CaregiverQuickActionsSection(),
+        SizedBox(height: 24),
+        CaregiverAdditionalFeaturesSection(),
+      ],
+    );
+  }
+}
+
+/// Grille des actions rapides accessibles depuis l’écran d’accueil aidant.
+class CaregiverQuickActionsSection extends StatelessWidget {
+  const CaregiverQuickActionsSection({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: QuickActionCard(
+                title: 'Localisation',
+                subtitle: 'Position GPS',
+                icon: FontAwesomeIcons.locationDot,
+                gradientColors: [
+                  Colors.orange.shade400,
+                  Colors.orange.shade600,
+                ],
+                onTap: () {},
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: QuickActionCard(
+                title: 'Santé',
+                subtitle: 'Constantes',
+                icon: FontAwesomeIcons.heartPulse,
+                gradientColors: [Colors.red.shade400, Colors.red.shade600],
+                onTap: () {},
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: QuickActionCard(
+                title: 'Alertes',
+                subtitle: 'Notifications',
+                icon: FontAwesomeIcons.bell,
+                gradientColors: [Colors.amber.shade400, Colors.amber.shade600],
+                onTap: () {},
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: QuickActionCard(
+                title: 'Historique',
+                subtitle: 'Activités',
+                icon: FontAwesomeIcons.clockRotateLeft,
+                gradientColors: [Colors.teal.shade400, Colors.teal.shade600],
+                onTap: () {},
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Liste des fonctionnalités additionnelles proposées à l’aidant.
+class CaregiverAdditionalFeaturesSection extends StatelessWidget {
+  final VoidCallback? onAppointmentsTap;
+  final VoidCallback? onMedicationsTap;
+  final VoidCallback? onEmergencyTap;
+
+  const CaregiverAdditionalFeaturesSection({
+    super.key,
+    this.onAppointmentsTap,
+    this.onMedicationsTap,
+    this.onEmergencyTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.more_horiz, color: Colors.grey.shade700, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Plus de fonctionnalités',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _CaregiverFeatureListTile(
+          icon: Icons.calendar_today_outlined,
+          title: 'Rendez-vous médicaux',
+          subtitle: 'Gérer les consultations',
+          onTap: onAppointmentsTap,
+        ),
+        const SizedBox(height: 8),
+        _CaregiverFeatureListTile(
+          icon: Icons.medication_outlined,
+          title: 'Médicaments',
+          subtitle: 'Rappels de prise',
+          onTap: onMedicationsTap,
+        ),
+        const SizedBox(height: 8),
+        _CaregiverFeatureListTile(
+          icon: Icons.phone_outlined,
+          title: 'Appel d\'urgence',
+          subtitle: 'Contacter rapidement',
+          onTap: onEmergencyTap,
+        ),
+      ],
+    );
+  }
+}
+
+class _CaregiverFeatureListTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  const _CaregiverFeatureListTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        onTap: onTap ?? () {},
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: Colors.blue.shade600, size: 22),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          size: 14,
+          color: Colors.grey.shade400,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+}
+
+/// Carte affichée lorsque aucun senior n’est encore lié à l’aidant.
+class CaregiverNoElderCard extends StatelessWidget {
+  final VoidCallback? onSupportTap;
+
+  const CaregiverNoElderCard({super.key, this.onSupportTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.person_off_outlined,
+            size: 60,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Aucun senior lié',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Veuillez vous reconnecter ou contacter le support pour lier un compte senior.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: onSupportTap ?? () {},
+            icon: const Icon(Icons.support_agent),
+            label: const Text('Contacter le support'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Indicateur de statut en ligne/hors ligne du senior dans la barre d’app.
 class ElderStatusIndicator extends StatelessWidget {
   final bool online;
   final String title;
@@ -830,6 +1095,7 @@ class ElderStatusIndicator extends StatelessWidget {
   }
 }
 
+/// Petit point animé indiquant la présence en ligne du senior.
 class _PresenceDot extends StatefulWidget {
   final bool online;
 
