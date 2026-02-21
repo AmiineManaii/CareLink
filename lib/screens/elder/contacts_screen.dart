@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/info_card.dart';
+import '../../widgets/contact_widgets.dart';
 import '../../models/contact.dart';
 import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
@@ -21,13 +22,15 @@ class _ContactsScreenState extends State<ContactsScreen> {
   bool _loadingCaregiver = false;
   IO.Socket? _socket;
   Timer? _relativeTimer;
+  Timer? _heartbeatTimer;
 
   String _formatLastSeen(String iso) {
     try {
       final dt = DateTime.tryParse(iso)?.toLocal();
       if (dt == null) return 'Hors ligne';
       final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 2) return 'Vu il y a ${diff.inSeconds.clamp(0, 119)} s';
+      if (diff.inMinutes < 2)
+        return 'Vu il y a ${diff.inSeconds.clamp(0, 119)} s';
       if (diff.inHours < 1) return 'Vu il y a ${diff.inMinutes} min';
       if (diff.inHours < 24) return 'Vu il y a ${diff.inHours} h';
       return 'Vu le ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} à ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -42,7 +45,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
     _fetchCaregiverInfo();
     _initSocket();
     _relativeTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted && _caregiver != null && _caregiver!['lastActiveAt'] != null) {
+      if (mounted &&
+          _caregiver != null &&
+          _caregiver!['lastActiveAt'] != null) {
         setState(() {});
       }
     });
@@ -89,6 +94,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
       );
       _socket!.onConnect((_) {
         _socket!.emit('registerElder', {'elderId': elderId});
+        _heartbeatTimer?.cancel();
+        _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+          _socket!.emit('elderHeartbeat', {'elderId': elderId});
+        });
       });
       _socket!.on('caregiverPresence', (data) {
         if (!mounted) return;
@@ -107,6 +116,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
   @override
   void dispose() {
     _relativeTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _socket?.dispose();
     super.dispose();
   }
@@ -269,7 +279,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (_caregiver != null)
-            
               Padding(
                 padding: const EdgeInsets.only(bottom: 24.0),
                 child: InfoCard(
@@ -279,8 +288,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   subtitle: _caregiver!['online'] == true
                       ? 'En ligne'
                       : (_caregiver!['lastActiveAt'] != null
-                          ? _formatLastSeen(_caregiver!['lastActiveAt'])
-                          : 'Hors ligne'),
+                            ? _formatLastSeen(_caregiver!['lastActiveAt'])
+                            : 'Hors ligne'),
                   gradientColors: [Colors.green[500]!, Colors.green[600]!],
                   onTap: () {
                     // Show details dialog
@@ -356,7 +365,15 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ...favorites.map((contact) => _buildFavoriteContact(contact)),
+                ...favorites.map(
+                  (contact) => FavoriteContactCard(
+                    contact: contact,
+                    recordingVoice: _recordingVoice,
+                    onCall: () => _handleCall(contact),
+                    onVideoCall: () => _handleVideoCall(contact),
+                    onVoiceMessage: () => _handleVoiceMessage(contact),
+                  ),
+                ),
               ],
             ),
 
@@ -384,7 +401,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ...otherContacts.map((contact) => _buildOtherContact(contact)),
+                ...otherContacts.map(
+                  (contact) => OtherContactCard(
+                    contact: contact,
+                    onCall: () => _handleCall(contact),
+                  ),
+                ),
               ],
             ),
 
@@ -417,10 +439,16 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                     children: [
-                      _buildEmergencyNumber('🚑', 'SAMU 15'),
-                      _buildEmergencyNumber('🚓', 'Police 17'),
-                      _buildEmergencyNumber('🚒', 'Pompiers 18'),
-                      _buildEmergencyNumber('🆘', 'Urgences 112'),
+                      const EmergencyNumberCard(emoji: '🚑', text: 'SAMU 15'),
+                      const EmergencyNumberCard(emoji: '🚓', text: 'Police 17'),
+                      const EmergencyNumberCard(
+                        emoji: '🚒',
+                        text: 'Pompiers 18',
+                      ),
+                      const EmergencyNumberCard(
+                        emoji: '🆘',
+                        text: 'Urgences 112',
+                      ),
                     ],
                   ),
                 ],
@@ -428,219 +456,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildFavoriteContact(Contact contact) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            // ignore: deprecated_member_use
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.blue[100],
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    contact.photo,
-                    style: const TextStyle(fontSize: 32),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      contact.name,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      contact.relation,
-                      style: const TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                    Text(
-                      contact.phone,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.blue[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _handleCall(contact),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[500],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(FontAwesomeIcons.phone),
-                  label: const Text('Appeler'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _handleVideoCall(contact),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[500],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(FontAwesomeIcons.video),
-                  label: const Text('Vidéo'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _handleVoiceMessage(contact),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _recordingVoice
-                        ? Colors.red[500]!
-                        : Colors.purple[500]!,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(FontAwesomeIcons.volumeHigh),
-                  label: Text(_recordingVoice ? '...' : 'Vocal'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOtherContact(Contact contact) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(contact.photo, style: const TextStyle(fontSize: 24)),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  contact.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                Text(
-                  contact.relation,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          InkWell(
-            onTap: () => _handleCall(contact),
-            borderRadius: BorderRadius.circular(28),
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.green[500],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                FontAwesomeIcons.phone,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmergencyNumber(String emoji, String text) {
-    return Container(
-      decoration: BoxDecoration(
-        // ignore: deprecated_member_use
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 32)),
-          const SizedBox(height: 4),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }

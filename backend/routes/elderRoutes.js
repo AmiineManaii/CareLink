@@ -155,7 +155,61 @@ router.get("/:id", async (req, res) => {
   try {
     const elder = await Elder.findById(req.params.id);
     if (!elder) return res.status(404).json({ error: "Elder not found" });
-    res.json(elder);
+    let online = false;
+    let lastActiveAt = elder.lastActiveAt;
+    if (lastActiveAt) {
+      const diff = Date.now() - new Date(lastActiveAt).getTime();
+      online = diff < 60000;
+    }
+    res.json({
+      _id: elder._id,
+      profile: elder.profile,
+      relationCode: elder.relationCode,
+      embeddings: elder.embeddings,
+      lastActiveAt,
+      online,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.post("/:id/heartbeat", async (req, res) => {
+  try {
+    const elder = await Elder.findByIdAndUpdate(
+      req.params.id,
+      { lastActiveAt: new Date() },
+      { new: true }
+    );
+    if (!elder) return res.status(404).json({ error: "Elder not found" });
+    let caregiver = null;
+    let caregiverOnline = false;
+    let caregiverLastActiveAt = null;
+    caregiver = await Caregiver.findOne({ linkedElderId: elder._id });
+    if (caregiver && caregiver.lastActiveAt) {
+      caregiverLastActiveAt = caregiver.lastActiveAt;
+      const diff = Date.now() - new Date(caregiver.lastActiveAt).getTime();
+      caregiverOnline = diff < 60000;
+    }
+    let online = false;
+    let lastActiveAt = elder.lastActiveAt;
+    if (lastActiveAt) {
+      const diff = Date.now() - new Date(lastActiveAt).getTime();
+      online = diff < 60000;
+    }
+    res.json({
+      elderId: elder._id,
+      online,
+      lastActiveAt,
+      caregiver: caregiver
+        ? {
+            caregiverId: caregiver._id,
+            online: caregiverOnline,
+            lastActiveAt: caregiverLastActiveAt,
+          }
+        : null,
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "server_error" });
@@ -173,7 +227,7 @@ router.get("/:id/caregiver", async (req, res) => {
      if (caregiver && caregiver.lastActiveAt) {
        lastActiveAt = caregiver.lastActiveAt;
        const diff = Date.now() - new Date(caregiver.lastActiveAt).getTime();
-       online = diff < 120000; // 2 minutes de seuil
+       online = diff < 60000;
      }
     
     res.json({

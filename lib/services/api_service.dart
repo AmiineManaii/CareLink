@@ -68,8 +68,8 @@ class ApiService {
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
-       // Return valid: false instead of throwing if it's just not found/invalid
-       return {'valid': false, 'message': 'Erreur serveur'};
+      // Return valid: false instead of throwing if it's just not found/invalid
+      return {'valid': false, 'message': 'Erreur serveur'};
     }
   }
 
@@ -82,6 +82,18 @@ class ApiService {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to load elder profile');
+    }
+  }
+
+  Future<Map<String, dynamic>> elderHeartbeat(String elderId) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/elder/$elderId/heartbeat'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to send elder heartbeat');
     }
   }
 
@@ -120,6 +132,18 @@ class ApiService {
       body: jsonEncode({'email': email, 'password': password}),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> caregiverHeartbeat(String caregiverId) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/caregiver/$caregiverId/heartbeat'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to send caregiver heartbeat');
+    }
   }
 
   Future<void> createSosAlert({

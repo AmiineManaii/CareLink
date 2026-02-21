@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../widgets/info_card.dart';
+import '../../widgets/quick_action_card.dart';
 import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -19,12 +19,20 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
   String? _elderId;
   IO.Socket? _socket;
   Timer? _heartbeatTimer;
+  bool? _elderOnline;
+  String? _elderLastActiveAt;
+  Timer? _statusTimer;
+  String? _statusError;
 
   @override
   void initState() {
     super.initState();
     _loadElderInfo();
     _initSocket();
+    _statusTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      _refreshPresenceViaHttp();
+    });
   }
 
   Future<void> _loadElderInfo() async {
@@ -38,13 +46,33 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
 
     try {
       final data = await ApiService().getElderProfile(id);
+      //print("data: ${data['online']}");
       if (mounted) {
         setState(() {
+          //print("data: ${data['online']}");
           _elderProfile = data['profile'];
+          if (data['online'] == true) {
+            //print("data2: ${data['online']}");
+            _elderOnline = true;
+          } else {
+            //print("data2: ${data['online']}");
+            _elderOnline = false;
+          }
+          final last = data['lastActiveAt'];
+          _elderLastActiveAt = last != null ? last.toString() : null;
+          //print(_elderLastActiveAt);
         });
       }
     } catch (e) {
       debugPrint('Error loading elder info: $e');
+      if (mounted) {
+        setState(() {
+          _statusError = 'Impossible de charger le statut de connexion';
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_statusError!)));
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -70,8 +98,28 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
         _socket!.emit('registerCaregiver', {'caregiverId': caregiverId});
         _heartbeatTimer?.cancel();
         _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-          _socket!.emit('heartbeat');
+          _socket!.emit('caregiverHeartbeat');
         });
+      });
+      _socket!.on('elderPresence', (data) {
+        if (!mounted) return;
+        setState(() {
+          
+          //print("data: ${data['online']}");
+          _elderOnline = data['online'] == true;
+          final last = data['lastActiveAt'];
+          _elderLastActiveAt = last != null ? last.toString() : null;
+          _statusError = null;
+        });
+      });
+      _socket!.onError((error) {
+        if (!mounted) return;
+        setState(() {
+          _statusError = 'Erreur de connexion temps réel';
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_statusError!)));
       });
       _socket!.onDisconnect((_) {
         _heartbeatTimer?.cancel();
@@ -82,9 +130,38 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
     }
   }
 
+  Future<void> _refreshPresenceViaHttp() async {
+    final caregiverId = InMemoryFaceStorage().getCaregiverId();
+    if (caregiverId == null) return;
+    try {
+      final data = await ApiService().caregiverHeartbeat(caregiverId);
+      if (!mounted) return;
+      final elder = data['elder'];
+      if (elder is Map<String, dynamic>) {
+        setState(() {
+          _elderOnline = elder['online'] == true;
+          final last = elder['lastActiveAt'];
+          _elderLastActiveAt = last != null ? last.toString() : null;
+          _statusError = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (_statusError == null) {
+        setState(() {
+          _statusError = 'Perte de connexion au serveur de statut';
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_statusError!)));
+      }
+    }
+  }
+
   @override
   void dispose() {
     _heartbeatTimer?.cancel();
+    _statusTimer?.cancel();
     _socket?.dispose();
     super.dispose();
   }
@@ -105,21 +182,29 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade400, Colors.blue.shade600],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _elderOnline == true ? Colors.green : Colors.red,
+                    width: 2,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.person,
-                  size: 50,
-                  color: Colors.white,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade400, Colors.blue.shade600],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Icon(Icons.person, size: 50, color: Colors.white),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               // Name
               Text(
                 '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}',
@@ -130,7 +215,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              
+
               // Info Details
               _buildProfileDetailRow(
                 Icons.wc_outlined,
@@ -158,9 +243,9 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                   'Email',
                   _elderProfile!['email'],
                 ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Close Button
               SizedBox(
                 width: double.infinity,
@@ -176,10 +261,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                   ),
                   child: const Text(
                     'Fermer',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -187,6 +269,67 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  String _formatLastSeen(String iso) {
+    try {
+      final dt = DateTime.tryParse(iso)?.toLocal();
+      if (dt == null) return 'Dernière activité inconnue';
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 2) {
+        final seconds = diff.inSeconds.clamp(0, 119);
+        return 'Vu il y a $seconds s';
+      }
+      if (diff.inHours < 1) {
+        return 'Vu il y a ${diff.inMinutes} min';
+      }
+      if (diff.inHours < 24) {
+        return 'Vu il y a ${diff.inHours} h';
+      }
+      final d = dt.day.toString().padLeft(2, '0');
+      final m = dt.month.toString().padLeft(2, '0');
+      final hh = dt.hour.toString().padLeft(2, '0');
+      final mm = dt.minute.toString().padLeft(2, '0');
+      return 'Vu le $d/$m à $hh:$mm';
+    } catch (_) {
+      return 'Dernière activité inconnue';
+    }
+  }
+
+  Widget _buildElderStatusBar() {
+    if (_elderId == null || _elderProfile == null) {
+      return const ElderStatusIndicator(
+        online: false,
+        title: 'Aucun senior lié',
+        subtitle: null,
+        onTap: null,
+      );
+    }
+    final name =
+        '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}'
+            .trim();
+    final online = _elderOnline == true;
+    String statusText;
+    String? subtitle;
+    if (online) {
+      statusText = 'En ligne';
+      if (name.isNotEmpty) {
+        subtitle = name;
+      }
+    } else {
+      statusText = 'Hors ligne';
+      if (_elderLastActiveAt != null) {
+        subtitle = _formatLastSeen(_elderLastActiveAt!);
+      } else if (name.isNotEmpty) {
+        subtitle = name;
+      }
+    }
+    return ElderStatusIndicator(
+      online: online,
+      title: statusText,
+      subtitle: subtitle,
+      onTap: _showElderProfileDialog,
     );
   }
 
@@ -214,10 +357,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
           Flexible(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               textAlign: TextAlign.right,
             ),
           ),
@@ -241,22 +381,13 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
               backgroundColor: Colors.white,
               elevation: 0,
               flexibleSpace: FlexibleSpaceBar(
-                title: const Text(
-                  'Tableau de bord',
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                title: _buildElderStatusBar(),
                 centerTitle: false,
                 titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
                 background: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        Colors.blue.shade50,
-                        Colors.white,
-                      ],
+                      colors: [Colors.blue.shade50, Colors.white],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -294,12 +425,8 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Welcome Section
-        _buildWelcomeSection(),
-        const SizedBox(height: 24),
-
         // Elder Profile Card
-        _buildElderProfileCard(),
+        //_buildElderProfileCard(),
         const SizedBox(height: 24),
 
         // Quick Actions Title
@@ -309,10 +436,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
             const SizedBox(width: 8),
             const Text(
               'Actions rapides',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -325,76 +449,6 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
         // Additional Features
         _buildAdditionalFeatures(),
       ],
-    );
-  }
-
-  Widget _buildWelcomeSection() {
-    final hour = DateTime.now().hour;
-    String greeting = 'Bonjour';
-    if (hour < 12) {
-      greeting = 'Bonjour';
-    } else if (hour < 18) {
-      greeting = 'Bon après-midi';
-    } else {
-      greeting = 'Bonsoir';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.blue.shade600],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.shade200.withOpacity(0.5),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  greeting,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Comment puis-je vous aider aujourd\'hui ?',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.waving_hand,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -422,23 +476,36 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
               children: [
                 // Avatar
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.purple.shade300, Colors.purple.shade500],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _elderOnline == true ? Colors.green : Colors.red,
+                      width: 2,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 32,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.purple.shade300,
+                          Colors.purple.shade500,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
-                
+
                 // Info
                 Expanded(
                   child: Column(
@@ -453,12 +520,22 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _PresenceDot(online: _elderOnline == true),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -472,7 +549,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Arrow
                 Icon(
                   Icons.arrow_forward_ios,
@@ -493,26 +570,25 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
         Row(
           children: [
             Expanded(
-              child: _buildActionCard(
-                icon: FontAwesomeIcons.locationDot,
+              child: QuickActionCard(
                 title: 'Localisation',
                 subtitle: 'Position GPS',
-                colors: [Colors.orange.shade400, Colors.orange.shade600],
-                onTap: () {
-                  // Navigate to location screen
-                },
+                icon: FontAwesomeIcons.locationDot,
+                gradientColors: [
+                  Colors.orange.shade400,
+                  Colors.orange.shade600,
+                ],
+                onTap: () {},
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildActionCard(
-                icon: FontAwesomeIcons.heartPulse,
+              child: QuickActionCard(
                 title: 'Santé',
                 subtitle: 'Constantes',
-                colors: [Colors.red.shade400, Colors.red.shade600],
-                onTap: () {
-                  // Navigate to health screen
-                },
+                icon: FontAwesomeIcons.heartPulse,
+                gradientColors: [Colors.red.shade400, Colors.red.shade600],
+                onTap: () {},
               ),
             ),
           ],
@@ -521,94 +597,27 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
         Row(
           children: [
             Expanded(
-              child: _buildActionCard(
-                icon: FontAwesomeIcons.bell,
+              child: QuickActionCard(
                 title: 'Alertes',
                 subtitle: 'Notifications',
-                colors: [Colors.amber.shade400, Colors.amber.shade600],
-                onTap: () {
-                  // Navigate to alerts screen
-                },
+                icon: FontAwesomeIcons.bell,
+                gradientColors: [Colors.amber.shade400, Colors.amber.shade600],
+                onTap: () {},
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildActionCard(
-                icon: FontAwesomeIcons.clockRotateLeft,
+              child: QuickActionCard(
                 title: 'Historique',
                 subtitle: 'Activités',
-                colors: [Colors.teal.shade400, Colors.teal.shade600],
-                onTap: () {
-                  // Navigate to history screen
-                },
+                icon: FontAwesomeIcons.clockRotateLeft,
+                gradientColors: [Colors.teal.shade400, Colors.teal.shade600],
+                onTap: () {},
               ),
             ),
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required List<Color> colors,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: colors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colors[0].withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -622,10 +631,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
             const SizedBox(width: 8),
             const Text(
               'Plus de fonctionnalités',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -684,26 +690,18 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
         ),
         trailing: Icon(
           Icons.arrow_forward_ios,
           size: 14,
           color: Colors.grey.shade400,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -742,10 +740,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
           Text(
             'Veuillez vous reconnecter ou contacter le support pour lier un compte senior.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
@@ -764,6 +759,141 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ElderStatusIndicator extends StatelessWidget {
+  final bool online;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  const ElderStatusIndicator({
+    super.key,
+    required this.online,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color cardColor = online ? Colors.green : Colors.red;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          key: const Key('elderStatusCircleTap'),
+          onTap: onTap,
+          child: Card(
+            elevation: 2,
+            shape: const CircleBorder(),
+            margin: EdgeInsets.zero,
+            child: AnimatedContainer(
+              key: const Key('elderStatusCircleContainer'),
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: cardColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.person, color: Colors.white, size: 16),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            if (subtitle != null)
+              Text(
+                subtitle!,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PresenceDot extends StatefulWidget {
+  final bool online;
+
+  const _PresenceDot({required this.online});
+
+  @override
+  State<_PresenceDot> createState() => _PresenceDotState();
+}
+
+class _PresenceDotState extends State<_PresenceDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+      lowerBound: 0.9,
+      upperBound: 1.1,
+    );
+    if (widget.online) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _PresenceDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.online && !oldWidget.online) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.online && oldWidget.online) {
+      _controller.stop();
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = widget.online
+        ? const Color(0xFF00FF00)
+        : const Color(0xFFFF0000);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4.0),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final scale = widget.online ? _controller.value : 1.0;
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+          );
+        },
       ),
     );
   }

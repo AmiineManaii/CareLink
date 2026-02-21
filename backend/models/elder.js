@@ -15,6 +15,7 @@ const ElderSchema = new mongoose.Schema(
       type: [[Number]], // array of embedding vectors
       default: [],
     },
+    lastActiveAt: { type: Date },
   },
   { timestamps: true }
 );

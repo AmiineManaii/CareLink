@@ -52,4 +52,47 @@ router.post("/signin", async (req, res) => {
   }
 });
 
+router.post("/:id/heartbeat", async (req, res) => {
+  try {
+    const cg = await Caregiver.findByIdAndUpdate(
+      req.params.id,
+      { lastActiveAt: new Date() },
+      { new: true }
+    );
+    if (!cg) return res.status(404).json({ error: "Caregiver not found" });
+    let elder = null;
+    let elderOnline = false;
+    let elderLastActiveAt = null;
+    if (cg.linkedElderId) {
+      elder = await Elder.findById(cg.linkedElderId);
+      if (elder && elder.lastActiveAt) {
+        elderLastActiveAt = elder.lastActiveAt;
+        const diff = Date.now() - new Date(elder.lastActiveAt).getTime();
+        elderOnline = diff < 60000;
+      }
+    }
+    let online = false;
+    let lastActiveAt = cg.lastActiveAt;
+    if (lastActiveAt) {
+      const diff = Date.now() - new Date(lastActiveAt).getTime();
+      online = diff < 60000;
+    }
+    res.json({
+      caregiverId: cg._id,
+      online,
+      lastActiveAt,
+      elder: elder
+        ? {
+            elderId: elder._id,
+            online: elderOnline,
+            lastActiveAt: elderLastActiveAt,
+          }
+        : null,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
 module.exports = router;
