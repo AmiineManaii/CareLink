@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -179,5 +180,89 @@ class ApiService {
       Uri.parse('$baseUrl/alerts/$alertId/read'),
       headers: {'Content-Type': 'application/json'},
     );
+  }
+
+  // --- Medication Management ---
+
+  Future<List<dynamic>> getMedications(String elderId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/medications/$elderId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to load medications');
+    }
+  }
+
+  Future<void> addMedication(Map<String, dynamic> medicationData, {File? image}) async {
+    final uri = Uri.parse('$baseUrl/medications');
+    final request = http.MultipartRequest('POST', uri);
+
+    // Add fields
+    medicationData.forEach((key, value) {
+      if (value != null) {
+        if (value is List) {
+          request.fields[key] = jsonEncode(value);
+        } else {
+          request.fields[key] = value.toString();
+        }
+      }
+    });
+
+    // Add file
+    if (image != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath('photo', image.path),
+      );
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception('Failed to add medication: ${response.body}');
+    }
+  }
+
+  Future<void> updateMedication(String id, Map<String, dynamic> medicationData, {File? image}) async {
+    final uri = Uri.parse('$baseUrl/medications/$id');
+    final request = http.MultipartRequest('PUT', uri);
+
+    // Add fields
+    medicationData.forEach((key, value) {
+      if (value != null) {
+        if (value is List) {
+          request.fields[key] = jsonEncode(value);
+        } else {
+          request.fields[key] = value.toString();
+        }
+      }
+    });
+
+    // Add file
+    if (image != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath('photo', image.path),
+      );
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update medication: ${response.body}');
+    }
+  }
+
+  Future<void> deleteMedication(String id) async {
+    final resp = await http.delete(
+      Uri.parse('$baseUrl/medications/$id'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to delete medication: ${resp.body}');
+    }
   }
 }

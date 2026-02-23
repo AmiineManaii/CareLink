@@ -45,12 +45,49 @@ class MainActivity : FlutterActivity() {
         }
 
         // Démarrer le service immédiatement
-        val intent = Intent(this, FallDetectionService::class.java)
+        val serviceIntent = Intent(this, FallDetectionService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
+            startForegroundService(serviceIntent)
         } else {
-            startService(intent)
+            startService(serviceIntent)
         }
+    }
+
+    private fun scheduleAlarm(id: String, name: String, dosage: String, timestamp: Long) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val intent = Intent(this, MedicationAlarmReceiver::class.java).apply {
+            putExtra("medicationName", name)
+            putExtra("dosage", dosage)
+            data = android.net.Uri.parse("medication://$id") // Unique per medication
+        }
+        val pendingIntent = android.app.PendingIntent.getBroadcast(
+            this,
+            id.hashCode(),
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, timestamp, pendingIntent)
+        } else {
+            alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timestamp, pendingIntent)
+        }
+        android.util.Log.d("DEBUG_SERVICE", "Alarme programmée pour $name à $timestamp (ID: $id)")
+    }
+
+    private fun cancelAlarm(id: String) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val intent = Intent(this, MedicationAlarmReceiver::class.java).apply {
+            data = android.net.Uri.parse("medication://$id")
+        }
+        val pendingIntent = android.app.PendingIntent.getBroadcast(
+            this,
+            id.hashCode(),
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
+        android.util.Log.d("DEBUG_SERVICE", "Alarme annulée pour ID: $id")
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -88,6 +125,26 @@ class MainActivity : FlutterActivity() {
                         startService(intent)
                     }
                     result.success("Service démarré")
+                } else if (call.method == "scheduleMedication") {
+                    val id = call.argument<String>("id")
+                    val name = call.argument<String>("name")
+                    val dosage = call.argument<String>("dosage")
+                    val timestamp = call.argument<Long>("timestamp")
+
+                    if (id != null && name != null && timestamp != null) {
+                        scheduleAlarm(id, name, dosage ?: "", timestamp)
+                        result.success("Alarm scheduled")
+                    } else {
+                        result.error("INVALID_ARGS", "Missing arguments", null)
+                    }
+                } else if (call.method == "cancelMedication") {
+                    val id = call.argument<String>("id")
+                    if (id != null) {
+                        cancelAlarm(id)
+                        result.success("Alarm cancelled")
+                    } else {
+                        result.error("INVALID_ARGS", "Missing id", null)
+                    }
                 } else {
                     result.notImplemented()
                 }

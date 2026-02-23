@@ -3,6 +3,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/quick_action_card.dart';
 import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
+import 'medications/caregiver_medications_screen.dart';
+import 'caregiver_alerts_screen.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:async';
 
@@ -601,7 +603,14 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                 subtitle: 'Notifications',
                 icon: FontAwesomeIcons.bell,
                 gradientColors: [Colors.amber.shade400, Colors.amber.shade600],
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CaregiverAlertsScreen(),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 12),
@@ -646,7 +655,14 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
           icon: Icons.medication_outlined,
           title: 'Médicaments',
           subtitle: 'Rappels de prise',
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CaregiverMedicationsScreen(),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 8),
         _buildFeatureListTile(
@@ -771,9 +787,9 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        SizedBox(height: 24),
-        Row(
+      children: [
+        const SizedBox(height: 24),
+        const Row(
           children: [
             Icon(Icons.flash_on, color: Colors.orange, size: 20),
             SizedBox(width: 8),
@@ -783,10 +799,19 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         CaregiverQuickActionsSection(),
-        SizedBox(height: 24),
-        CaregiverAdditionalFeaturesSection(),
+        const SizedBox(height: 24),
+        CaregiverAdditionalFeaturesSection(
+          onMedicationsTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CaregiverMedicationsScreen(),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -835,7 +860,14 @@ class CaregiverQuickActionsSection extends StatelessWidget {
                 subtitle: 'Notifications',
                 icon: FontAwesomeIcons.bell,
                 gradientColors: [Colors.amber.shade400, Colors.amber.shade600],
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CaregiverAlertsScreen(),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 12),

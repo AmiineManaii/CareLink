@@ -54,12 +54,20 @@ class FallDetectionService : Service(), SensorEventListener {
     // Timer pour annulation
     private var countdownTimer: android.os.CountDownTimer? = null
     private val ACTION_CANCEL_SOS = "com.example.care_link.ACTION_CANCEL_SOS"
+    private val ACTION_MEDICATION_REMINDER = "com.example.care_link.ACTION_MEDICATION_REMINDER"
 
-
+    private var tts: android.speech.tts.TextToSpeech? = null
 
     override fun onCreate() {
         super.onCreate()
         
+        // Init TTS
+        tts = android.speech.tts.TextToSpeech(this) { status ->
+            if (status == android.speech.tts.TextToSpeech.SUCCESS) {
+                tts?.language = java.util.Locale.FRENCH
+            }
+        }
+
         // 1. Démarrage immédiat en foreground
         startForeground(1, createNotification())
 
@@ -93,12 +101,14 @@ class FallDetectionService : Service(), SensorEventListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Gérer l'action d'annulation
         if (intent?.action == ACTION_CANCEL_SOS) {
             cancelFallCountdown()
-            return START_STICKY
+        } else if (intent?.action == ACTION_MEDICATION_REMINDER) {
+            val medName = intent.getStringExtra("medicationName") ?: "Médicament"
+            val dosage = intent.getStringExtra("dosage") ?: ""
+            handleMedicationReminder(medName, dosage)
         }
-
+        
         // Lancer la lecture silencieuse pour que le système considère cela comme de la lecture média
         try {
             if (mediaPlayer == null) {
@@ -114,6 +124,26 @@ class FallDetectionService : Service(), SensorEventListener {
         }
 
         return START_STICKY
+    }
+
+    private fun handleMedicationReminder(name: String, dosage: String) {
+        // Notification
+        val notification = NotificationCompat.Builder(this, "fall_alert_channel")
+            .setContentTitle("Rappel Médicament")
+            .setContentText("Il est l'heure de prendre : $name $dosage")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setSound(Settings.System.DEFAULT_ALARM_ALERT_URI)
+            .build()
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(System.currentTimeMillis().toInt(), notification)
+
+        // Voice
+        tts?.speak("Il est l'heure de prendre votre médicament : $name", android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -135,6 +165,7 @@ class FallDetectionService : Service(), SensorEventListener {
             }
             mediaPlayer?.stop()
             mediaPlayer?.release()
+            tts?.shutdown()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -320,7 +351,7 @@ class FallDetectionService : Service(), SensorEventListener {
 
         // 5. Démarrer le Timer
         countdownTimer?.cancel()
-        countdownTimer = object : CountDownTimer(30000, 1000) {
+        countdownTimer = object : CountDownTimer(10000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 // Update notification text every 5s
                 if (millisUntilFinished % 5000 < 1000) {

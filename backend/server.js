@@ -8,6 +8,7 @@ const userRoutes = require("./routes/userRoutes");
 const elderRoutes = require("./routes/elderRoutes");
 const caregiverRoutes = require("./routes/caregiverRoutes");
 const alertRoutes = require("./routes/alertRoutes");
+const medicationRoutes = require("./routes/medicationRoutes");
 const Caregiver = require("./models/caregiver");
 const Elder = require("./models/elder");
 const Alert = require("./models/alert");
@@ -19,11 +20,13 @@ const io = new Server(server, {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use('/uploads', express.static('uploads'));
 app.use("/users", userRoutes);
 app.use("/elder", elderRoutes);
 app.use("/caregiver", caregiverRoutes);
 app.use("/alerts", alertRoutes);
+app.use("/medications", medicationRoutes);
 
 const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/flutterDB";
 mongoose
