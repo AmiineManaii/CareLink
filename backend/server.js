@@ -8,6 +8,7 @@ const userRoutes = require("./routes/userRoutes");
 const elderRoutes = require("./routes/elderRoutes");
 const caregiverRoutes = require("./routes/caregiverRoutes");
 const alertRoutes = require("./routes/alertRoutes");
+const taskRoutes = require("./routes/taskRoutes");
 const medicationRoutes = require("./routes/medicationRoutes");
 const Caregiver = require("./models/caregiver");
 const Elder = require("./models/elder");
@@ -27,6 +28,7 @@ app.use("/elder", elderRoutes);
 app.use("/caregiver", caregiverRoutes);
 app.use("/alerts", alertRoutes);
 app.use("/medications", medicationRoutes);
+app.use("/tasks", taskRoutes);
 
 const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/flutterDB";
 mongoose

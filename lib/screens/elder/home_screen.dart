@@ -291,6 +291,13 @@ $mapLink
                     onTap: () => widget.onNavigate('medications'),
                   ),
                   QuickActionCard(
+                    title: 'Mes Tâches',
+                    subtitle: 'Quotidien',
+                    icon: FontAwesomeIcons.listCheck,
+                    gradientColors: [Colors.blue[500]!, Colors.blue[600]!],
+                    onTap: () => widget.onNavigate('daily_tasks'),
+                  ),
+                  QuickActionCard(
                     title: 'Contacts',
                     subtitle: 'Appel rapide',
                     icon: FontAwesomeIcons.phone,

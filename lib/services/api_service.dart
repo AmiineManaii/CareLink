@@ -265,4 +265,54 @@ class ApiService {
       throw Exception('Failed to delete medication: ${resp.body}');
     }
   }
+
+  // --- TASKS ---
+  Future<Map<String, dynamic>> addTask({
+    required String elderId,
+    required String title,
+    required String description,
+    required String time,
+    required DateTime date,
+    bool reminderEnabled = true,
+  }) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/tasks/add'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'elderId': elderId,
+        'title': title,
+        'description': description,
+        'time': time,
+        'date': date.toIso8601String(),
+        'reminderEnabled': reminderEnabled,
+      }),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> getElderTasks(String elderId, {DateTime? date}) async {
+    String url = '$baseUrl/tasks/elder/$elderId';
+    if (date != null) {
+      url += '?date=${date.toIso8601String()}';
+    }
+    final resp = await http.get(Uri.parse(url));
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return data['tasks'] as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateTask(String id, Map<String, dynamic> data) async {
+    final resp = await http.put(
+      Uri.parse('$baseUrl/tasks/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<void> deleteTask(String id) async {
+    final resp = await http.delete(Uri.parse('$baseUrl/tasks/$id'));
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to delete task');
+    }
+  }
 }

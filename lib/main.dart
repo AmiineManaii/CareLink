@@ -12,6 +12,7 @@ import 'screens/elder/medications_screen.dart';
 import 'screens/elder/family_dashboard_screen.dart';
 import 'features/face_auth/face_storage.dart';
 import 'screens/elder/alerts_screen.dart';
+import 'screens/elder/daily_tasks_screen.dart';
 import 'screens/caregiver/caregiver_login_screen.dart';
 import 'screens/caregiver/caregiver_navigation.dart';
 
@@ -347,6 +348,9 @@ class _ElderlyNavigationState extends State<ElderlyNavigation> {
         break;
       case 'alerts':
         screen = const AlertsScreen();
+        break;
+      case 'daily_tasks':
+        screen = const DailyTasksScreen();
         break;
       default:
         return;
