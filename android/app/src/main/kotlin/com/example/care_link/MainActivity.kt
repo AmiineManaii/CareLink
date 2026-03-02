@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.app.KeyguardManager
+import android.telephony.SmsManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -90,6 +91,20 @@ class MainActivity : FlutterActivity() {
         android.util.Log.d("DEBUG_SERVICE", "Alarme annulée pour ID: $id")
     }
 
+    private fun sendSMS(phoneNumber: String, message: String) {
+        try {
+            val smsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                getSystemService(android.telephony.SmsManager::class.java)
+            } else {
+                android.telephony.SmsManager.getDefault()
+            }
+            smsManager.sendTextMessage(phoneNumber, null, message, null, null)
+            android.util.Log.d("DEBUG_SERVICE", "SMS envoyé avec succès à $phoneNumber")
+        } catch (e: Exception) {
+            android.util.Log.e("DEBUG_SERVICE", "Erreur lors de l'envoi du SMS: ${e.message}")
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -144,6 +159,15 @@ class MainActivity : FlutterActivity() {
                         result.success("Alarm cancelled")
                     } else {
                         result.error("INVALID_ARGS", "Missing id", null)
+                    }
+                } else if (call.method == "sendSMS") {
+                    val phone = call.argument<String>("phone")
+                    val message = call.argument<String>("message")
+                    if (phone != null && message != null) {
+                        sendSMS(phone, message)
+                        result.success("SMS sent")
+                    } else {
+                        result.error("INVALID_ARGS", "Missing phone or message", null)
                     }
                 } else {
                     result.notImplemented()

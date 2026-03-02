@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
@@ -43,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final String smtpUser = dotenv.env['SMTP_USER'] ?? '';
   final String smtpPassword = dotenv.env['SMTP_PASS'] ?? '';
   final String smtpRecipient = dotenv.env['SMTP_TO'] ?? '';
+  final String smsRecipient = dotenv.env['SMS_TO'] ?? '';
 
   @override
   void initState() {
@@ -50,6 +52,25 @@ class _HomeScreenState extends State<HomeScreen> {
     _initNotifications();
     _initFallDetection();
     _startLocationUpdates(); // Démarrer le suivi de position
+    _fetchCaregiverPhone(); // Récupérer le téléphone de l'aidant
+  }
+
+  Future<void> _fetchCaregiverPhone() async {
+    final elderId = InMemoryFaceStorage().getElderId();
+    if (elderId == null) return;
+
+    // Si on a déjà le téléphone, pas besoin de re-fetcher
+    if (InMemoryFaceStorage().getCaregiverPhone() != null) return;
+
+    try {
+      final data = await ApiService().getElderCaregiver(elderId);
+      if (data['caregiver'] != null && data['caregiver']['phone'] != null) {
+        await InMemoryFaceStorage().setCaregiverPhone(data['caregiver']['phone']);
+        debugPrint("Téléphone de l'aidant récupéré: ${data['caregiver']['phone']}");
+      }
+    } catch (e) {
+      debugPrint("Erreur récupération téléphone aidant pour SMS SOS: $e");
+    }
   }
 
   // Fonction pour mettre à jour la position toutes les 30 secondes
@@ -73,21 +94,28 @@ class _HomeScreenState extends State<HomeScreen> {
           permission == LocationPermission.deniedForever)
         return;
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
-      );
-
-      if (mounted) {
-        setState(() {
-          _lastKnownPosition = position;
-        });
-      } else {
-        _lastKnownPosition = position;
+      // Try to get current position with a reasonable timeout
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } catch (e) {
+        // If current position fails or timeouts, fallback to last known position
+        position = await Geolocator.getLastKnownPosition();
+        // debugPrint("Timeout getCurrentPosition, using last known: $position");
       }
-      /*debugPrint(
-        "Position mise à jour: ${position.latitude}, ${position.longitude}",
-      );*/
+
+      if (position != null) {
+        if (mounted) {
+          setState(() {
+            _lastKnownPosition = position;
+          });
+        } else {
+          _lastKnownPosition = position;
+        }
+      }
     } catch (e) {
       debugPrint("Erreur mise à jour position périodique: $e");
     }
@@ -102,10 +130,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleSOSPress() {
+    _sosTimer?.cancel(); // Cancel any existing timer to avoid double triggers
     setState(() => _sosPressed = true);
     _sosTimer = Timer(const Duration(seconds: 2), () {
-      _sendSOS();
-      setState(() => _sosPressed = false);
+      if (_sosPressed) {
+        _sendSOS();
+        setState(() => _sosPressed = false);
+      }
     });
   }
 
@@ -146,6 +177,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Future<void> _showFallNotification(String body) async { ... } (Supprimé car géré par Android)
 
+  Future<bool> _hasInternet() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } on SocketException catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _sendSMSFallback(String lat, String lon) async {
+    // Try to get caregiver phone from storage first
+    String recipient = InMemoryFaceStorage().getCaregiverPhone() ?? smsRecipient;
+
+    if (recipient.isEmpty) {
+      debugPrint("SMS Fallback: No recipient configured");
+      return;
+    }
+
+    try {
+      final status = await Permission.sms.request();
+      if (status.isGranted) {
+        final message = "ALERTE SOS - CareLink\n"
+            "Position: https://www.google.com/maps?q=$lat,$lon\n"
+            "Lat: $lat, Lon: $lon";
+
+        await _fallChannel.invokeMethod('sendSMS', {
+          'phone': recipient,
+          'message': message,
+        });
+        debugPrint("SOS SMS envoyé à $recipient");
+      } else {
+        debugPrint("Permission SMS refusée");
+      }
+    } catch (e) {
+      debugPrint("Erreur envoi SMS fallback: $e");
+    }
+  }
+
   Future<bool> _sendSOS({bool showDialog = true}) async {
     try {
       // Tenter de récupérer la position, mais ne pas bloquer si ça échoue
@@ -170,6 +239,18 @@ class _HomeScreenState extends State<HomeScreen> {
         debugPrint(
           "Erreur récupération localisation (SOS continue quand même): $e",
         );
+      }
+
+      // --- CHECK INTERNET ---
+      bool hasNet = await _hasInternet();
+
+      if (!hasNet) {
+        debugPrint("Mode Hors Ligne détecté - Envoi SMS Fallback");
+        await _sendSMSFallback(lat, lon);
+        if (showDialog) {
+          await _showMessage('SOS envoyé par SMS (Pas d\'internet)');
+        }
+        return true;
       }
 
       final elderId = InMemoryFaceStorage().getElderId();
@@ -227,11 +308,16 @@ $mapLink
       }
       return true;
     } catch (e) {
-      debugPrint("Erreur critique envoi SOS: $e");
+      debugPrint("Erreur SOS (Email/API): $e - Tentative SMS Fallback");
+      // Fallback SMS si l'email/API échoue (peut-être internet instable)
+      String lat = _lastKnownPosition?.latitude.toStringAsFixed(6) ?? '0.0';
+      String lon = _lastKnownPosition?.longitude.toStringAsFixed(6) ?? '0.0';
+      await _sendSMSFallback(lat, lon);
+      
       if (showDialog) {
-        await _showMessage('Erreur SMTP : $e');
+        await _showMessage('SOS envoyé par SMS (Erreur Internet)');
       }
-      return false;
+      return true;
     }
   }
 

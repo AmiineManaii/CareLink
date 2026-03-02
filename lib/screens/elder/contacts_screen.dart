@@ -68,6 +68,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
           _elderCode = data['code'];
           _caregiver = data['caregiver'];
         });
+        // Save caregiver phone for SOS SMS
+        if (_caregiver != null && _caregiver!['phone'] != null) {
+          await InMemoryFaceStorage().setCaregiverPhone(_caregiver!['phone']);
+        }
       }
     } catch (e) {
       debugPrint('Error fetching caregiver info: $e');
