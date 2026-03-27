@@ -20,9 +20,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
   String? _elderCode;
   Map<String, dynamic>? _caregiver;
   bool _loadingCaregiver = false;
-  IO.Socket? _socket;
   Timer? _relativeTimer;
-  Timer? _heartbeatTimer;
 
   String _formatLastSeen(String iso) {
     try {
@@ -43,7 +41,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
   void initState() {
     super.initState();
     _fetchCaregiverInfo();
-    _initSocket();
     _relativeTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted &&
           _caregiver != null &&
@@ -84,44 +81,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
     }
   }
 
-  Future<void> _initSocket() async {
-    final elderId = InMemoryFaceStorage().getElderId();
-    if (elderId == null) return;
-    final baseUrl = ApiService().baseUrl;
-    try {
-      _socket = IO.io(
-        baseUrl,
-        IO.OptionBuilder()
-            .setTransports(['websocket'])
-            .disableAutoConnect()
-            .build(),
-      );
-      _socket!.onConnect((_) {
-        _socket!.emit('registerElder', {'elderId': elderId});
-        _heartbeatTimer?.cancel();
-        _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-          _socket!.emit('elderHeartbeat', {'elderId': elderId});
-        });
-      });
-      _socket!.on('caregiverPresence', (data) {
-        if (!mounted) return;
-        setState(() {
-          _caregiver = _caregiver ?? {};
-          _caregiver!['online'] = data['online'] == true;
-          _caregiver!['lastActiveAt'] = data['lastActiveAt'];
-        });
-      });
-      _socket!.connect();
-    } catch (e) {
-      debugPrint('Socket error (elder): $e');
-    }
-  }
-
   @override
   void dispose() {
     _relativeTimer?.cancel();
-    _heartbeatTimer?.cancel();
-    _socket?.dispose();
     super.dispose();
   }
 

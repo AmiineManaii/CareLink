@@ -70,13 +70,8 @@ class MedicationReminderService {
       }
 
       if (nextTime != null) {
-        // Soustraire 15 minutes pour la notification
-        final notificationTime = nextTime.subtract(const Duration(minutes: 15));
-        
-        // Si l'heure de notification est déjà passée, on garde l'heure réelle
-        // ou on décide de ne pas notifier si c'est trop tard.
-        // Ici, on programme à l'heure de notification si elle est dans le futur.
-        final finalTime = notificationTime.isAfter(now) ? notificationTime : nextTime;
+        // Schedule notification exactly at the medication time
+        final finalTime = nextTime;
 
         final alarmId = "${med.id}_$i";
         await _channel.invokeMethod('scheduleMedication', {
@@ -85,7 +80,7 @@ class MedicationReminderService {
           'dosage': med.dosage,
           'timestamp': finalTime.millisecondsSinceEpoch,
         });
-        debugPrint("Scheduled ${med.name} notification for $finalTime (Real time: $nextTime)");
+        debugPrint("Scheduled ${med.name} notification for $finalTime");
       }
     }
   }

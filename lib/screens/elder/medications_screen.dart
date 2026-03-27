@@ -48,12 +48,42 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
 
       // Filter for active medications today
       final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
       final todayMeds = allMeds.where((med) {
         if (!med.active) return false;
-        if (med.endDate != null && med.endDate!.isBefore(now)) return false;
-        if (med.startDate.isAfter(now)) return false;
+
+        // Use only date parts for comparison
+        final start = DateTime(
+          med.startDate.year,
+          med.startDate.month,
+          med.startDate.day,
+        );
+        if (start.isAfter(today)) return false;
+
+        if (med.endDate != null) {
+          final end = DateTime(
+            med.endDate!.year,
+            med.endDate!.month,
+            med.endDate!.day,
+          );
+          if (end.isBefore(today)) return false;
+        }
+
+        // If frequency is weekly, check if today is one of the days
+        if (med.frequency == 'Hebdomadaire' && med.days.isNotEmpty) {
+          if (!med.days.contains(now.weekday)) return false;
+        }
+
         return true;
       }).toList();
+
+      // Sort by first time of day
+      todayMeds.sort((a, b) {
+        if (a.times.isEmpty) return 1;
+        if (b.times.isEmpty) return -1;
+        return a.times.first.compareTo(b.times.first);
+      });
 
       setState(() {
         _medications = todayMeds;
@@ -98,8 +128,39 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     );
   }
 
+  Medication? _getNextMedication() {
+    if (_medications.isEmpty) return null;
+
+    final now = DateTime.now();
+    final currentTimeStr = DateFormat('HH:mm').format(now);
+
+    for (var med in _medications) {
+      for (var time in med.times) {
+        if (time.compareTo(currentTimeStr) > 0) {
+          return med;
+        }
+      }
+    }
+    // If all passed, return first one (maybe it's the next day's first)
+    return _medications.first;
+  }
+
+  String _getNextTime(Medication med) {
+    final now = DateTime.now();
+    final currentTimeStr = DateFormat('HH:mm').format(now);
+
+    for (var time in med.times) {
+      if (time.compareTo(currentTimeStr) > 0) {
+        return time;
+      }
+    }
+    return med.times.isNotEmpty ? med.times.first : '--:--';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final nextMed = _getNextMedication();
+
     return Scaffold(
       appBar: const CustomAppBar(
         title: 'Mes médicaments',
@@ -115,15 +176,13 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Upcoming Reminder (Mocked for now based on first med)
-                  if (_medications.isNotEmpty)
+                  // Upcoming Reminder
+                  if (nextMed != null)
                     MedicationReminderCard(
-                      time: _medications.first.times.isNotEmpty
-                          ? _medications.first.times.first
-                          : '--:--',
-                      medicationName: _medications.first.name,
-                      dosage: _medications.first.dosage,
-                      onListen: () => _speakMedication(_medications.first),
+                      time: _getNextTime(nextMed),
+                      medicationName: nextMed.name,
+                      dosage: nextMed.dosage,
+                      onListen: () => _speakMedication(nextMed),
                     ),
 
                   const SizedBox(height: 24),

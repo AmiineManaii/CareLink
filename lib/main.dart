@@ -2,6 +2,7 @@
 
 import 'package:care_link/features/face_auth/face_login_screen.dart';
 import 'package:care_link/features/face_auth/face_signup_screen.dart';
+import 'package:care_link/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,6 +16,8 @@ import 'screens/elder/alerts_screen.dart';
 import 'screens/elder/daily_tasks_screen.dart';
 import 'screens/caregiver/caregiver_login_screen.dart';
 import 'screens/caregiver/caregiver_navigation.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -331,6 +334,47 @@ class ElderlyNavigation extends StatefulWidget {
 }
 
 class _ElderlyNavigationState extends State<ElderlyNavigation> {
+  IO.Socket? _socket;
+  Timer? _heartbeatTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSocket();
+  }
+
+  @override
+  void dispose() {
+    _heartbeatTimer?.cancel();
+    _socket?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initSocket() async {
+    final elderId = InMemoryFaceStorage().getElderId();
+    if (elderId == null) return;
+    final baseUrl = ApiService().baseUrl;
+    try {
+      _socket = IO.io(
+        baseUrl,
+        IO.OptionBuilder()
+            .setTransports(['websocket'])
+            .disableAutoConnect()
+            .build(),
+      );
+      _socket!.onConnect((_) {
+        debugPrint('Elder connected to socket');
+        _socket!.emit('registerElder', {'elderId': elderId});
+        _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+          _socket!.emit('elderHeartbeat', {'elderId': elderId});
+        });
+      });
+      _socket!.connect();
+    } catch (e) {
+      debugPrint('Error initializing socket for elder: $e');
+    }
+  }
+
   void _navigateTo(String view) {
     Widget screen;
     switch (view) {

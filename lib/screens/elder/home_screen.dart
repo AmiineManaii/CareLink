@@ -14,6 +14,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
+import '../../services/medication_reminder_service.dart';
+import '../../models/medication.dart';
 
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/sos_button.dart';
@@ -53,6 +55,51 @@ class _HomeScreenState extends State<HomeScreen> {
     _initFallDetection();
     _startLocationUpdates(); // Démarrer le suivi de position
     _fetchCaregiverPhone(); // Récupérer le téléphone de l'aidant
+    _scheduleMedications(); // Planifier les médicaments
+  }
+
+  Future<void> _scheduleMedications() async {
+    try {
+      final elderId = InMemoryFaceStorage().getElderId();
+      if (elderId == null) return;
+
+      final data = await ApiService().getMedications(elderId);
+      final allMeds = data.map((json) => Medication.fromJson(json)).toList();
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      final todayMeds = allMeds.where((med) {
+        if (!med.active) return false;
+
+        final start = DateTime(
+          med.startDate.year,
+          med.startDate.month,
+          med.startDate.day,
+        );
+        if (start.isAfter(today)) return false;
+
+        if (med.endDate != null) {
+          final end = DateTime(
+            med.endDate!.year,
+            med.endDate!.month,
+            med.endDate!.day,
+          );
+          if (end.isBefore(today)) return false;
+        }
+
+        if (med.frequency == 'Hebdomadaire' && med.days.isNotEmpty) {
+          if (!med.days.contains(now.weekday)) return false;
+        }
+
+        return true;
+      }).toList();
+
+      await MedicationReminderService.scheduleForMedications(todayMeds);
+      debugPrint("Scheduled ${todayMeds.length} medications from Home");
+    } catch (e) {
+      debugPrint("Error scheduling medications from Home: $e");
+    }
   }
 
   Future<void> _fetchCaregiverPhone() async {
@@ -65,8 +112,12 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final data = await ApiService().getElderCaregiver(elderId);
       if (data['caregiver'] != null && data['caregiver']['phone'] != null) {
-        await InMemoryFaceStorage().setCaregiverPhone(data['caregiver']['phone']);
-        debugPrint("Téléphone de l'aidant récupéré: ${data['caregiver']['phone']}");
+        await InMemoryFaceStorage().setCaregiverPhone(
+          data['caregiver']['phone'],
+        );
+        debugPrint(
+          "Téléphone de l'aidant récupéré: ${data['caregiver']['phone']}",
+        );
       }
     } catch (e) {
       debugPrint("Erreur récupération téléphone aidant pour SMS SOS: $e");
@@ -188,7 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _sendSMSFallback(String lat, String lon) async {
     // Try to get caregiver phone from storage first
-    String recipient = InMemoryFaceStorage().getCaregiverPhone() ?? smsRecipient;
+    String recipient =
+        InMemoryFaceStorage().getCaregiverPhone() ?? smsRecipient;
 
     if (recipient.isEmpty) {
       debugPrint("SMS Fallback: No recipient configured");
@@ -198,7 +250,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final status = await Permission.sms.request();
       if (status.isGranted) {
-        final message = "ALERTE SOS - CareLink\n"
+        final message =
+            "ALERTE SOS - CareLink\n"
             "Position: https://www.google.com/maps?q=$lat,$lon\n"
             "Lat: $lat, Lon: $lon";
 
@@ -313,7 +366,7 @@ $mapLink
       String lat = _lastKnownPosition?.latitude.toStringAsFixed(6) ?? '0.0';
       String lon = _lastKnownPosition?.longitude.toStringAsFixed(6) ?? '0.0';
       await _sendSMSFallback(lat, lon);
-      
+
       if (showDialog) {
         await _showMessage('SOS envoyé par SMS (Erreur Internet)');
       }
