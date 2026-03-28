@@ -2,20 +2,20 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'
-    hide Message;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
 import '../../services/medication_reminder_service.dart';
 import '../../models/medication.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz_data;
 
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/sos_button.dart';
@@ -36,8 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Position? _lastKnownPosition; // Stocker la dernière position connue
 
   StreamSubscription<dynamic>? _fallSubscription;
-  final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
   static const MethodChannel _fallChannel = MethodChannel('fall_channel');
   static const EventChannel _fallEventsChannel = EventChannel('fall_events');
 
@@ -51,11 +49,75 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _initNotifications();
-    _initFallDetection();
-    _startLocationUpdates(); // Démarrer le suivi de position
-    _fetchCaregiverPhone(); // Récupérer le téléphone de l'aidant
-    _scheduleMedications(); // Planifier les médicaments
+    _setupApp();
+  }
+
+  Future<void> _setupApp() async {
+    await _initNotifications();
+    await _initFallDetection();
+    _startLocationUpdates();
+    await _fetchCaregiverPhone();
+    await _scheduleMedications();
+    await _scheduleDailyTasks();
+  }
+
+  Future<void> _scheduleDailyTasks() async {
+    try {
+      final elderId = InMemoryFaceStorage().getElderId();
+      if (elderId == null) return;
+
+      final tasks = await ApiService().getElderTasks(
+        elderId,
+        date: DateTime.now(),
+      );
+
+      for (var task in tasks) {
+        if (task['reminderEnabled'] != true || task['isCompleted'] == true)
+          continue;
+
+        final taskTime = task['time'] as String; // HH:mm
+        final taskDate = DateTime.parse(task['date']);
+        final parts = taskTime.split(':');
+
+        DateTime scheduledDate = DateTime(
+          taskDate.year,
+          taskDate.month,
+          taskDate.day,
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+        );
+
+        // Heure réelle de la tâche
+        final DateTime actualTaskTime = scheduledDate.add(
+          const Duration(minutes: 15),
+        );
+
+        // On garde le label par défaut (15 min avant)
+        String label = "${task['title']} (dans 15 min)";
+
+        if (scheduledDate.isBefore(DateTime.now())) {
+          // Si l'alerte des 15 min est passée, mais que l'heure réelle est future
+          if (actualTaskTime.isAfter(DateTime.now())) {
+            scheduledDate = actualTaskTime;
+            label = "${task['title']} (Maintenant)";
+          } else {
+            continue; // Les deux sont passés
+          }
+        }
+
+        final id = task['_id'].toString();
+        const channel = MethodChannel('fall_channel');
+        await channel.invokeMethod('scheduleTask', {
+          'id': id,
+          'title': label,
+          'description': task['description'] ?? '',
+          'timestamp': scheduledDate.millisecondsSinceEpoch,
+        });
+      }
+      debugPrint("Scheduled ${tasks.length} tasks from Home");
+    } catch (e) {
+      debugPrint("Error scheduling tasks from Home: $e");
+    }
   }
 
   Future<void> _scheduleMedications() async {
@@ -197,9 +259,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initNotifications() async {
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: androidInit);
-    await _notifications.initialize(settings);
+    tz_data.initializeTimeZones();
+
+    // Demander la permission sur Android 13+
+    if (Platform.isAndroid) {
+      final status = await Permission.notification.status;
+      if (status.isDenied) {
+        await Permission.notification.request();
+      }
+    }
   }
 
   Future<void> _initFallDetection() async {

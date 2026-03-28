@@ -5,6 +5,7 @@ import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
 import 'medications/caregiver_medications_screen.dart';
 import 'caregiver_alerts_screen.dart';
+import 'caregiver_tasks_screen.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:async';
 
@@ -410,7 +411,12 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                       ),
                     )
                   else if (_elderId != null && _elderProfile != null)
-                    const CaregiverHomeConnectedContent()
+                    CaregiverHomeConnectedContent(
+                      elderId: _elderId,
+                      elderName:
+                          '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}'
+                              .trim(),
+                    )
                   else
                     const CaregiverNoElderCard(),
                 ]),
@@ -419,37 +425,6 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildConnectedContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Elder Profile Card
-        //_buildElderProfileCard(),
-        const SizedBox(height: 24),
-
-        // Quick Actions Title
-        Row(
-          children: [
-            Icon(Icons.flash_on, color: Colors.orange.shade600, size: 20),
-            const SizedBox(width: 8),
-            const Text(
-              'Actions rapides',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Quick Actions Grid
-        _buildQuickActionsGrid(),
-        const SizedBox(height: 24),
-
-        // Additional Features
-        _buildAdditionalFeatures(),
-      ],
     );
   }
 
@@ -565,116 +540,6 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
     );
   }
 
-  Widget _buildQuickActionsGrid() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: QuickActionCard(
-                title: 'Localisation',
-                subtitle: 'Position GPS',
-                icon: FontAwesomeIcons.locationDot,
-                gradientColors: [
-                  Colors.orange.shade400,
-                  Colors.orange.shade600,
-                ],
-                onTap: () {},
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: QuickActionCard(
-                title: 'Santé',
-                subtitle: 'Constantes',
-                icon: FontAwesomeIcons.heartPulse,
-                gradientColors: [Colors.red.shade400, Colors.red.shade600],
-                onTap: () {},
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: QuickActionCard(
-                title: 'Alertes',
-                subtitle: 'Notifications',
-                icon: FontAwesomeIcons.bell,
-                gradientColors: [Colors.amber.shade400, Colors.amber.shade600],
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CaregiverAlertsScreen(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: QuickActionCard(
-                title: 'Historique',
-                subtitle: 'Activités',
-                icon: FontAwesomeIcons.clockRotateLeft,
-                gradientColors: [Colors.teal.shade400, Colors.teal.shade600],
-                onTap: () {},
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAdditionalFeatures() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.more_horiz, color: Colors.grey.shade700, size: 20),
-            const SizedBox(width: 8),
-            const Text(
-              'Plus de fonctionnalités',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildFeatureListTile(
-          icon: Icons.calendar_today_outlined,
-          title: 'Rendez-vous médicaux',
-          subtitle: 'Gérer les consultations',
-          onTap: () {},
-        ),
-        const SizedBox(height: 8),
-        _buildFeatureListTile(
-          icon: Icons.medication_outlined,
-          title: 'Médicaments',
-          subtitle: 'Rappels de prise',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CaregiverMedicationsScreen(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        _buildFeatureListTile(
-          icon: Icons.phone_outlined,
-          title: 'Appel d\'urgence',
-          subtitle: 'Contacter rapidement',
-          onTap: () {},
-        ),
-      ],
-    );
-  }
-
   Widget _buildFeatureListTile({
     required IconData icon,
     required String title,
@@ -781,7 +646,14 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
 
 /// Contenu principal de l’écran d’accueil aidant quand un senior est lié.
 class CaregiverHomeConnectedContent extends StatelessWidget {
-  const CaregiverHomeConnectedContent({super.key});
+  final String? elderId;
+  final String? elderName;
+
+  const CaregiverHomeConnectedContent({
+    super.key,
+    this.elderId,
+    this.elderName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -800,9 +672,11 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        CaregiverQuickActionsSection(),
+        CaregiverQuickActionsSection(elderId: elderId, elderName: elderName),
         const SizedBox(height: 24),
         CaregiverAdditionalFeaturesSection(
+          elderId: elderId,
+          elderName: elderName,
           onMedicationsTap: () {
             Navigator.push(
               context,
@@ -819,7 +693,10 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
 
 /// Grille des actions rapides accessibles depuis l’écran d’accueil aidant.
 class CaregiverQuickActionsSection extends StatelessWidget {
-  const CaregiverQuickActionsSection({super.key});
+  final String? elderId;
+  final String? elderName;
+
+  const CaregiverQuickActionsSection({super.key, this.elderId, this.elderName});
 
   @override
   Widget build(BuildContext context) {
@@ -873,11 +750,23 @@ class CaregiverQuickActionsSection extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: QuickActionCard(
-                title: 'Historique',
-                subtitle: 'Activités',
-                icon: FontAwesomeIcons.clockRotateLeft,
+                title: 'Tâches',
+                subtitle: 'Gérer les tâches',
+                icon: FontAwesomeIcons.listCheck,
                 gradientColors: [Colors.teal.shade400, Colors.teal.shade600],
-                onTap: () {},
+                onTap: () {
+                  if (elderId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CaregiverTasksScreen(
+                          elderId: elderId!,
+                          elderName: elderName ?? 'Senior',
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
             ),
           ],
@@ -889,12 +778,16 @@ class CaregiverQuickActionsSection extends StatelessWidget {
 
 /// Liste des fonctionnalités additionnelles proposées à l’aidant.
 class CaregiverAdditionalFeaturesSection extends StatelessWidget {
+  final String? elderId;
+  final String? elderName;
   final VoidCallback? onAppointmentsTap;
   final VoidCallback? onMedicationsTap;
   final VoidCallback? onEmergencyTap;
 
   const CaregiverAdditionalFeaturesSection({
     super.key,
+    this.elderId,
+    this.elderName,
     this.onAppointmentsTap,
     this.onMedicationsTap,
     this.onEmergencyTap,
@@ -916,6 +809,25 @@ class CaregiverAdditionalFeaturesSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
+        _CaregiverFeatureListTile(
+          icon: Icons.assignment_outlined,
+          title: 'Tâches quotidiennes',
+          subtitle: 'Gérer les tâches de ${elderName ?? 'votre senior'}',
+          onTap: () {
+            if (elderId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CaregiverTasksScreen(
+                    elderId: elderId!,
+                    elderName: elderName ?? 'Senior',
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+        const SizedBox(height: 8),
         _CaregiverFeatureListTile(
           icon: Icons.calendar_today_outlined,
           title: 'Rendez-vous médicaux',

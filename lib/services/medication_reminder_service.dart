@@ -70,17 +70,32 @@ class MedicationReminderService {
       }
 
       if (nextTime != null) {
-        // Schedule notification exactly at the medication time
-        final finalTime = nextTime;
+        // Schedule notification 15 minutes before the medication time
+        DateTime finalTime = nextTime.subtract(const Duration(minutes: 15));
+        String label = "${med.name} (dans 15 min)";
+
+        // If the 15-min warning is in the past, but the actual time is future, schedule for the actual time
+        // This avoids repeating notifications immediately on every screen change,
+        // as the alarm will be set for a future time (nextTime).
+        if (finalTime.isBefore(DateTime.now())) {
+          if (nextTime.isAfter(DateTime.now())) {
+            finalTime = nextTime;
+            label = "${med.name} (Maintenant)";
+          } else {
+            continue; // Both warning and actual time are in the past
+          }
+        }
 
         final alarmId = "${med.id}_$i";
         await _channel.invokeMethod('scheduleMedication', {
           'id': alarmId,
-          'name': med.name,
+          'name': label,
           'dosage': med.dosage,
           'timestamp': finalTime.millisecondsSinceEpoch,
         });
-        debugPrint("Scheduled ${med.name} notification for $finalTime");
+        debugPrint(
+          "Scheduled ${med.name} notification for $finalTime (15 min before)",
+        );
       }
     }
   }

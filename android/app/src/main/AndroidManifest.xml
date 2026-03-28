@@ -79,6 +79,7 @@
             android:foregroundServiceType="mediaPlayback|health" />
 
         <receiver android:name=".MedicationAlarmReceiver" android:exported="false" />
+        <receiver android:name=".TaskAlarmReceiver" android:exported="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

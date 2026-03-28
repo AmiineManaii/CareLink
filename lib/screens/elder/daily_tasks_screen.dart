@@ -1,10 +1,10 @@
+import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 import '../../services/api_service.dart';
-import '../../features/face_auth/face_storage.dart';
 import '../../widgets/custom_app_bar.dart';
 
 class DailyTasksScreen extends StatefulWidget {
@@ -16,8 +16,6 @@ class DailyTasksScreen extends StatefulWidget {
 
 class _DailyTasksScreenState extends State<DailyTasksScreen> {
   final ApiService _apiService = ApiService();
-  final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
 
   List<dynamic> _tasks = [];
   bool _isLoading = true;
@@ -32,9 +30,6 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
 
   Future<void> _initNotifications() async {
     tz_data.initializeTimeZones();
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: androidInit);
-    await _notifications.initialize(settings);
   }
 
   Future<void> _loadTasks() async {
@@ -42,9 +37,16 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     try {
       final elderId = InMemoryFaceStorage().getElderId();
       if (elderId != null) {
-        final tasks =
-            await _apiService.getElderTasks(elderId, date: _selectedDate);
+        final tasks = await _apiService.getElderTasks(
+          elderId,
+          date: _selectedDate,
+        );
         setState(() => _tasks = tasks);
+
+        // Planifier les notifications pour toutes les tâches récupérées
+        for (var task in tasks) {
+          _scheduleNotification(task);
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +64,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     final taskDate = DateTime.parse(task['date']);
 
     final parts = taskTime.split(':');
-    final scheduledDate = DateTime(
+    DateTime scheduledDate = DateTime(
       taskDate.year,
       taskDate.month,
       taskDate.day,
@@ -70,27 +72,38 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
       int.parse(parts[1]),
     );
 
-    if (scheduledDate.isBefore(DateTime.now())) return;
-
-    final id = task['_id'].hashCode;
-
-    await _notifications.zonedSchedule(
-      id,
-      'Rappel de tâche',
-      task['title'],
-      tz.TZDateTime.from(scheduledDate, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'daily_tasks_channel',
-          'Tâches quotidiennes',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    // Actual time of the task
+    final DateTime actualTaskTime = scheduledDate.add(
+      const Duration(minutes: 15),
     );
+
+    // Subtract 15 minutes globally for the warning
+    // (scheduledDate already has 15 mins subtracted above)
+
+    String label = "${task['title']} (dans 15 min)";
+
+    if (scheduledDate.isBefore(DateTime.now())) {
+      // If 15 min before is past, but task time is future, schedule for the actual time
+      if (actualTaskTime.isAfter(DateTime.now())) {
+        scheduledDate = actualTaskTime;
+        label = "${task['title']} (Maintenant)";
+      } else {
+        return; // Both warning and actual time are in the past
+      }
+    }
+
+    final id = task['_id'].toString();
+    debugPrint(
+      "Scheduling task notification: ${task['title']} at $scheduledDate (ID: $id)",
+    );
+
+    const channel = MethodChannel('fall_channel');
+    await channel.invokeMethod('scheduleTask', {
+      'id': id,
+      'title': label,
+      'description': task['description'] ?? '',
+      'timestamp': scheduledDate.millisecondsSinceEpoch,
+    });
   }
 
   Future<void> _addTask() async {
@@ -131,7 +144,8 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                     labelStyle: const TextStyle(fontSize: 20),
                     hintText: 'Ex: Faire ma marche',
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15)),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                     contentPadding: const EdgeInsets.all(20),
                   ),
                 ),
@@ -144,13 +158,16 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                     labelText: 'Plus de détails (Optionnel)',
                     labelStyle: const TextStyle(fontSize: 18),
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15)),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                     contentPadding: const EdgeInsets.all(20),
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text('À quelle heure ?',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const Text(
+                  'À quelle heure ?',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -171,7 +188,9 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                           child: Text(
                             selectedTime.hour.toString().padLeft(2, '0'),
                             style: const TextStyle(
-                                fontSize: 50, fontWeight: FontWeight.bold),
+                              fontSize: 50,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         _buildTimeButton(Icons.remove, () {
@@ -185,9 +204,13 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                         const Text('Heures', style: TextStyle(fontSize: 18)),
                       ],
                     ),
-                    const Text(':',
-                        style: TextStyle(
-                            fontSize: 50, fontWeight: FontWeight.bold)),
+                    const Text(
+                      ':',
+                      style: TextStyle(
+                        fontSize: 50,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     // Minute Column
                     Column(
                       children: [
@@ -195,7 +218,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                           setModalState(() {
                             selectedTime = TimeOfDay(
                               hour: selectedTime.hour,
-                              minute: (selectedTime.minute + 5) % 60,
+                              minute: (selectedTime.minute + 1) % 60,
                             );
                           });
                         }),
@@ -204,14 +227,16 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                           child: Text(
                             selectedTime.minute.toString().padLeft(2, '0'),
                             style: const TextStyle(
-                                fontSize: 50, fontWeight: FontWeight.bold),
+                              fontSize: 50,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         _buildTimeButton(Icons.remove, () {
                           setModalState(() {
                             selectedTime = TimeOfDay(
                               hour: selectedTime.hour,
-                              minute: (selectedTime.minute - 5 + 60) % 60,
+                              minute: (selectedTime.minute - 1 + 60) % 60,
                             );
                           });
                         }),
@@ -249,14 +274,16 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                     backgroundColor: Colors.blue[600],
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15)),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
                   child: const Text(
                     'ENREGISTRER LA TÂCHE',
                     style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -275,7 +302,9 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
       });
       if (result['success'] == true) {
         if (result['task']['isCompleted'] == true) {
-          await _notifications.cancel(task['_id'].hashCode);
+          final id = task['_id'].toString();
+          const channel = MethodChannel('fall_channel');
+          await channel.invokeMethod('cancelTask', {'id': id});
         } else {
           _scheduleNotification(result['task']);
         }
@@ -290,7 +319,10 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer cette tâche ?', style: TextStyle(fontSize: 22)),
+        title: const Text(
+          'Supprimer cette tâche ?',
+          style: TextStyle(fontSize: 22),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -299,7 +331,10 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('OUI, SUPPRIMER', style: TextStyle(fontSize: 18, color: Colors.white)),
+            child: const Text(
+              'OUI, SUPPRIMER',
+              style: TextStyle(fontSize: 18, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -308,7 +343,8 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     if (confirm == true) {
       try {
         await _apiService.deleteTask(id);
-        await _notifications.cancel(id.hashCode);
+        const channel = MethodChannel('fall_channel');
+        await channel.invokeMethod('cancelTask', {'id': id});
         _loadTasks();
       } catch (e) {
         debugPrint('Error deleting task: $e');
@@ -327,30 +363,35 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _tasks.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.assignment_outlined,
-                                size: 100, color: Colors.grey[400]),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Aucune tâche pour aujourd\'hui',
-                              style: TextStyle(
-                                  fontSize: 22, color: Colors.grey[600]),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.assignment_outlined,
+                          size: 100,
+                          color: Colors.grey[400],
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _tasks.length,
-                        itemBuilder: (context, index) {
-                          final task = _tasks[index];
-                          return _buildTaskItem(task);
-                        },
-                      ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Aucune tâche pour aujourd\'hui',
+                          style: TextStyle(
+                            fontSize: 22,
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _tasks.length,
+                    itemBuilder: (context, index) {
+                      final task = _tasks[index];
+                      return _buildTaskItem(task);
+                    },
+                  ),
           ),
         ],
       ),
@@ -377,7 +418,9 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
           padding: EdgeInsets.zero,
           backgroundColor: Colors.blue[50],
           foregroundColor: Colors.blue[800],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           elevation: 2,
         ),
         child: Icon(icon, size: 40),
@@ -406,13 +449,17 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
               Text(
                 DateFormat('EEEE', 'fr_FR').format(_selectedDate).toUpperCase(),
                 style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.blue[800],
-                    fontWeight: FontWeight.w500),
+                  fontSize: 18,
+                  color: Colors.blue[800],
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               Text(
                 DateFormat('d MMMM', 'fr_FR').format(_selectedDate),
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -460,20 +507,26 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: isCompleted ? Colors.grey : Colors.black87,
-                        decoration:
-                            isCompleted ? TextDecoration.lineThrough : null,
+                        decoration: isCompleted
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.access_time,
-                            size: 24, color: Colors.blue),
+                        const Icon(
+                          Icons.access_time,
+                          size: 24,
+                          color: Colors.blue,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           task['time'],
                           style: const TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w500),
+                            fontSize: 22,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
@@ -481,7 +534,11 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_forever, color: Colors.red, size: 35),
+                icon: const Icon(
+                  Icons.delete_forever,
+                  color: Colors.red,
+                  size: 35,
+                ),
                 onPressed: () => _deleteTask(task['_id']),
               ),
             ],

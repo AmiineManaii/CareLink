@@ -55,8 +55,10 @@ class FallDetectionService : Service(), SensorEventListener {
     private var countdownTimer: android.os.CountDownTimer? = null
     private val ACTION_CANCEL_SOS = "com.example.care_link.ACTION_CANCEL_SOS"
     private val ACTION_MEDICATION_REMINDER = "com.example.care_link.ACTION_MEDICATION_REMINDER"
+    private val ACTION_TASK_REMINDER = "com.example.care_link.ACTION_TASK_REMINDER"
 
     private var tts: android.speech.tts.TextToSpeech? = null
+    private val lastNotificationTimes = mutableMapOf<String, Long>()
 
     override fun onCreate() {
         super.onCreate()
@@ -67,6 +69,9 @@ class FallDetectionService : Service(), SensorEventListener {
                 tts?.language = java.util.Locale.FRENCH
             }
         }
+
+        // Créer les canaux de notification
+        createNotificationChannels()
 
         // 1. Démarrage immédiat en foreground
         startForeground(1, createNotification())
@@ -107,6 +112,10 @@ class FallDetectionService : Service(), SensorEventListener {
             val medName = intent.getStringExtra("medicationName") ?: "Médicament"
             val dosage = intent.getStringExtra("dosage") ?: ""
             handleMedicationReminder(medName, dosage)
+        } else if (intent?.action == ACTION_TASK_REMINDER) {
+            val taskTitle = intent.getStringExtra("taskTitle") ?: "Tâche"
+            val taskDescription = intent.getStringExtra("taskDescription") ?: ""
+            handleTaskReminder(taskTitle, taskDescription)
         }
         
         // Lancer la lecture silencieuse pour que le système considère cela comme de la lecture média
@@ -127,6 +136,14 @@ class FallDetectionService : Service(), SensorEventListener {
     }
 
     private fun handleMedicationReminder(name: String, dosage: String) {
+        val now = System.currentTimeMillis()
+        val lastTime = lastNotificationTimes[name] ?: 0L
+        if (now - lastTime < 60000) { // Anti-spam 60s
+            android.util.Log.d("DEBUG_SERVICE", "Rappel médicament $name ignoré (déjà envoyé récemment)")
+            return
+        }
+        lastNotificationTimes[name] = now
+
         // Notification
         val notification = NotificationCompat.Builder(this, "fall_alert_channel")
             .setContentTitle("Rappel Médicament")
@@ -140,10 +157,40 @@ class FallDetectionService : Service(), SensorEventListener {
             .build()
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(System.currentTimeMillis().toInt(), notification)
+        // Utiliser un ID stable basé sur le nom pour éviter les doublons
+        manager.notify(name.hashCode(), notification)
 
         // Voice
         tts?.speak("Il est l'heure de prendre votre médicament : $name", android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    private fun handleTaskReminder(title: String, description: String) {
+        val now = System.currentTimeMillis()
+        val lastTime = lastNotificationTimes[title] ?: 0L
+        if (now - lastTime < 60000) { // Anti-spam 60s
+            android.util.Log.d("DEBUG_SERVICE", "Rappel tâche $title ignoré (déjà envoyé récemment)")
+            return
+        }
+        lastNotificationTimes[title] = now
+
+        // Notification
+        val notification = NotificationCompat.Builder(this, "fall_alert_channel")
+            .setContentTitle("Rappel de Tâche")
+            .setContentText("N'oubliez pas : $title")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setSound(Settings.System.DEFAULT_ALARM_ALERT_URI)
+            .build()
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Utiliser un ID stable basé sur le titre
+        manager.notify(title.hashCode(), notification)
+
+        // Voice
+        tts?.speak("Rappel de tâche : $title", android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -264,25 +311,39 @@ class FallDetectionService : Service(), SensorEventListener {
         // Pas nécessaire
     }
 
-    private fun createNotificationChannel() {
-        val soundUri = Settings.System.DEFAULT_ALARM_ALERT_URI
-
-        val audioAttributes = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelId = "fall_alert_channel"
-            val channelName = "ALERTE CHUTE"
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Notifications critiques de chute"
-                enableLights(true)
-                enableVibration(true)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                setSound(soundUri, audioAttributes)
-            }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
+            
+            // 1. Canal pour la détection en arrière-plan (Foreground Service)
+             val detectionChannel = NotificationChannel(
+                 "fall_detection_channel",
+                 "Détection de Chute Active",
+                 NotificationManager.IMPORTANCE_LOW
+             ).apply {
+                 description = "Surveille les chutes en arrière-plan"
+                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+             }
+             manager.createNotificationChannel(detectionChannel)
+ 
+             // 2. Canal pour les alertes (Chutes, Médicaments)
+             val audioAttributes = android.media.AudioAttributes.Builder()
+                 .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                 .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                 .build()
+
+             val alertChannel = NotificationChannel(
+                 "fall_alert_channel",
+                 "Alertes de Santé",
+                 NotificationManager.IMPORTANCE_HIGH
+             ).apply {
+                 description = "Notifications pour les chutes et les médicaments"
+                 enableLights(true)
+                 enableVibration(true)
+                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                 setSound(Settings.System.DEFAULT_ALARM_ALERT_URI, audioAttributes)
+             }
+             manager.createNotificationChannel(alertChannel)
         }
     }
 
@@ -298,7 +359,7 @@ class FallDetectionService : Service(), SensorEventListener {
     private fun startFallCountdown() {
         android.util.Log.d("DEBUG_SERVICE", "Démarrage du compte à rebours SOS")
         
-        createNotificationChannel() // Assurer que le canal existe
+        createNotificationChannels() // Assurer que les canaux existent
 
         // 1. Préparer l'intent d'annulation
         val cancelIntent = Intent(this, FallDetectionService::class.java).apply {
@@ -400,16 +461,7 @@ class FallDetectionService : Service(), SensorEventListener {
 
     private fun createNotification(): Notification {
         val channelId = "fall_detection_channel"
-        val channelName = "Détection de Chute Active"
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH)
-            channel.description = "Surveille les chutes en arrière-plan"
-            channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
-        }
-
         val pendingIntent = PendingIntent.getActivity(
             this, 0,
             packageManager.getLaunchIntentForPackage(packageName),
@@ -422,7 +474,7 @@ class FallDetectionService : Service(), SensorEventListener {
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
     }

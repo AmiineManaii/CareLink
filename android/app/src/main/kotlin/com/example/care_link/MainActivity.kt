@@ -54,12 +54,19 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun scheduleAlarm(id: String, name: String, dosage: String, timestamp: Long) {
+    private fun scheduleAlarm(id: String, name: String, dosage: String, timestamp: Long, isTask: Boolean = false) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-        val intent = Intent(this, MedicationAlarmReceiver::class.java).apply {
-            putExtra("medicationName", name)
-            putExtra("dosage", dosage)
-            data = android.net.Uri.parse("medication://$id") // Unique per medication
+        val receiverClass = if (isTask) TaskAlarmReceiver::class.java else MedicationAlarmReceiver::class.java
+        
+        val intent = Intent(this, receiverClass).apply {
+            if (isTask) {
+                putExtra("taskTitle", name)
+                putExtra("taskDescription", dosage) // Reuse dosage field for description
+            } else {
+                putExtra("medicationName", name)
+                putExtra("dosage", dosage)
+            }
+            data = android.net.Uri.parse("carelink://$id") // Unique per notification
         }
         val pendingIntent = android.app.PendingIntent.getBroadcast(
             this,
@@ -73,13 +80,16 @@ class MainActivity : FlutterActivity() {
         } else {
             alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timestamp, pendingIntent)
         }
-        android.util.Log.d("DEBUG_SERVICE", "Alarme programmée pour $name à $timestamp (ID: $id)")
+        val type = if (isTask) "Tâche" else "Médicament"
+        android.util.Log.d("DEBUG_SERVICE", "$type programmée : $name à $timestamp (ID: $id)")
     }
 
-    private fun cancelAlarm(id: String) {
+    private fun cancelAlarm(id: String, isTask: Boolean = false) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-        val intent = Intent(this, MedicationAlarmReceiver::class.java).apply {
-            data = android.net.Uri.parse("medication://$id")
+        val receiverClass = if (isTask) TaskAlarmReceiver::class.java else MedicationAlarmReceiver::class.java
+        
+        val intent = Intent(this, receiverClass).apply {
+            data = android.net.Uri.parse("carelink://$id")
         }
         val pendingIntent = android.app.PendingIntent.getBroadcast(
             this,
@@ -147,7 +157,7 @@ class MainActivity : FlutterActivity() {
                     val timestamp = call.argument<Long>("timestamp")
 
                     if (id != null && name != null && timestamp != null) {
-                        scheduleAlarm(id, name, dosage ?: "", timestamp)
+                        scheduleAlarm(id, name, dosage ?: "", timestamp, false)
                         result.success("Alarm scheduled")
                     } else {
                         result.error("INVALID_ARGS", "Missing arguments", null)
@@ -155,8 +165,28 @@ class MainActivity : FlutterActivity() {
                 } else if (call.method == "cancelMedication") {
                     val id = call.argument<String>("id")
                     if (id != null) {
-                        cancelAlarm(id)
+                        cancelAlarm(id, false)
                         result.success("Alarm cancelled")
+                    } else {
+                        result.error("INVALID_ARGS", "Missing id", null)
+                    }
+                } else if (call.method == "scheduleTask") {
+                    val id = call.argument<String>("id")
+                    val title = call.argument<String>("title")
+                    val description = call.argument<String>("description")
+                    val timestamp = call.argument<Long>("timestamp")
+
+                    if (id != null && title != null && timestamp != null) {
+                        scheduleAlarm(id, title, description ?: "", timestamp, true)
+                        result.success("Task scheduled")
+                    } else {
+                        result.error("INVALID_ARGS", "Missing arguments", null)
+                    }
+                } else if (call.method == "cancelTask") {
+                    val id = call.argument<String>("id")
+                    if (id != null) {
+                        cancelAlarm(id, true)
+                        result.success("Task cancelled")
                     } else {
                         result.error("INVALID_ARGS", "Missing id", null)
                     }
