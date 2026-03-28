@@ -22,6 +22,9 @@ import android.os.CountDownTimer
 
 import android.provider.Settings
 import android.net.Uri
+import android.hardware.camera2.CameraManager
+import android.os.Handler
+import android.os.Looper
 
 class FallDetectionService : Service(), SensorEventListener {
 
@@ -144,6 +147,13 @@ class FallDetectionService : Service(), SensorEventListener {
         }
         lastNotificationTimes[name] = now
 
+        // Check Visual Alert Setting
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val visualAlertEnabled = prefs.getBoolean("flutter.visualAlertEnabled", false)
+        if (visualAlertEnabled) {
+            blinkFlash()
+        }
+
         // Notification
         val notification = NotificationCompat.Builder(this, "fall_alert_channel")
             .setContentTitle("Rappel Médicament")
@@ -173,6 +183,13 @@ class FallDetectionService : Service(), SensorEventListener {
         }
         lastNotificationTimes[title] = now
 
+        // Check Visual Alert Setting
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val visualAlertEnabled = prefs.getBoolean("flutter.visualAlertEnabled", false)
+        if (visualAlertEnabled) {
+            blinkFlash()
+        }
+
         // Notification
         val notification = NotificationCompat.Builder(this, "fall_alert_channel")
             .setContentTitle("Rappel de Tâche")
@@ -191,6 +208,29 @@ class FallDetectionService : Service(), SensorEventListener {
 
         // Voice
         tts?.speak("Rappel de tâche : $title", android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    private fun blinkFlash() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                val cameraId = cameraManager.cameraIdList[0]
+                val handler = Handler(Looper.getMainLooper())
+                
+                // Blink 3 times
+                for (i in 0 until 6) {
+                    handler.postDelayed({
+                        try {
+                            cameraManager.setTorchMode(cameraId, i % 2 == 0)
+                        } catch (e: Exception) {
+                            android.util.Log.e("DEBUG_SERVICE", "Flash error: ${e.message}")
+                        }
+                    }, (i * 300).toLong())
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DEBUG_SERVICE", "Flash accessibility error: ${e.message}")
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {

@@ -2,6 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/feature_card.dart';
 
@@ -16,12 +20,55 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
   bool _isScanning = false;
   bool _isListening = false;
   bool _highContrast = false;
+  bool _visualAlertEnabled = false;
   final TextEditingController _textController = TextEditingController();
   double _fontSize = 18;
+  String _ttsSpeed = 'Normale';
+
+  final FlutterTts _flutterTts = FlutterTts();
+  final stt.SpeechToText _speech = stt.SpeechToText();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+    _initTts();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _highContrast = prefs.getBool('highContrast') ?? false;
+      _fontSize = prefs.getDouble('fontSize') ?? 18.0;
+      _visualAlertEnabled = prefs.getBool('visualAlertEnabled') ?? false;
+    });
+  }
+
+  Future<void> _saveSetting(String key, dynamic value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (value is bool) {
+      await prefs.setBool(key, value);
+    } else if (value is double) {
+      await prefs.setDouble(key, value);
+    }
+  }
+
+  Future<void> _initTts() async {
+    await _flutterTts.setLanguage("fr-FR");
+    await _setTtsSpeed(_ttsSpeed);
+  }
+
+  Future<void> _setTtsSpeed(String speed) async {
+    double rate = 0.5;
+    if (speed == 'Lente') rate = 0.3;
+    if (speed == 'Rapide') rate = 0.7;
+    await _flutterTts.setSpeechRate(rate);
+  }
 
   @override
   void dispose() {
     _textController.dispose();
+    _flutterTts.stop();
     super.dispose();
   }
 
@@ -34,16 +81,20 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       setState(() {
         _isScanning = false;
       });
+      const text =
+          'Ordonnance médicale\n\nPatient: Marie Dubois\nMédicament: Doliprane 1000mg\nPosologie: 1 comprimé 3 fois par jour\nDurée: 7 jours\n\n🔊 Le texte va maintenant être lu à voix haute...';
+      _flutterTts.speak(text);
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('📷 TEXTE DÉTECTÉ'),
-          content: const Text(
-            'Ordonnance médicale\n\nPatient: Marie Dubois\nMédicament: Doliprane 1000mg\nPosologie: 1 comprimé 3 fois par jour\nDurée: 7 jours\n\n🔊 Le texte va maintenant être lu à voix haute...',
-          ),
+          content: const Text(text),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                _flutterTts.stop();
+                Navigator.pop(context);
+              },
               child: const Text('OK'),
             ),
           ],
@@ -52,57 +103,50 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
     });
   }
 
-  void _handleSpeechToText() {
+  Future<void> _handleSpeechToText() async {
     if (!_isListening) {
-      setState(() {
-        _isListening = true;
-      });
-
-      showDialog(
-        context: context,
-        builder: (context) => const AlertDialog(
-          title: Text('🎤 Parlez maintenant...'),
-          content: Text(
-            'Exemple: "Bonjour Marie, comment vas-tu aujourd\'hui?"',
-          ),
-        ),
-      );
-
-      Future.delayed(const Duration(seconds: 3), () {
-        setState(() {
-          _isListening = false;
-        });
-        showDialog(
-          context: context,
-          builder: (context) => const AlertDialog(
-            title: Text('✅ TEXTE TRANSCRIT'),
-            content: Text(
-              '\'Bonjour Marie, comment vas-tu aujourd\'hui?\'\n\nLe message est prêt à être envoyé.',
-            ),
-            actions: [TextButton(onPressed: null, child: Text('OK'))],
-          ),
+      var status = await Permission.speech.request();
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission micro refusée.')),
         );
-      });
+        return;
+      }
+      bool available = await _speech.initialize();
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (val) {
+            if (val.finalResult) {
+              setState(() => _isListening = false);
+              _textController.text = val.recognizedWords;
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('✅ TEXTE TRANSCRIT'),
+                  content: Text('"${val.recognizedWords}"'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          },
+          localeId: "fr_FR",
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
     }
   }
 
   void _handleTextToSpeech() {
     if (_textController.text.trim().isNotEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('🔊 LECTURE VOCALE'),
-          content: Text(
-            '"${_textController.text}"\n\nLe texte sera lu à voix haute avec une voix claire et naturelle.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      _flutterTts.speak(_textController.text);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ℹ️ Veuillez entrer un texte à lire.')),
@@ -256,14 +300,19 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
                           style: TextStyle(color: Colors.grey[700]),
                         ),
                         DropdownButton<String>(
-                          value: 'Normale',
+                          value: _ttsSpeed,
                           items: ['Lente', 'Normale', 'Rapide']
                               .map(
                                 (e) =>
                                     DropdownMenuItem(value: e, child: Text(e)),
                               )
                               .toList(),
-                          onChanged: (_) {},
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _ttsSpeed = val);
+                              _setTtsSpeed(val);
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -295,10 +344,11 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
                       const SizedBox(width: 12),
                       Text(
                         'Paramètres d\'accessibilité',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
+                            ),
                       ),
                     ],
                   ),
@@ -355,6 +405,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
                             setState(() {
                               _fontSize = value;
                             });
+                            _saveSetting('fontSize', value);
                           },
                         ),
                         Row(
@@ -381,6 +432,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
                       setState(() {
                         _highContrast = value;
                       });
+                      _saveSetting('highContrast', value);
                     },
                   ),
 
@@ -404,11 +456,16 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
 
                   // Visual Alerts
                   _buildSettingRow(
-                    icon: FontAwesomeIcons.earListen,
+                    icon: FontAwesomeIcons.bolt,
                     title: 'Alertes visuelles',
-                    subtitle: 'Flash au lieu du son',
-                    value: true,
-                    onChanged: (_) {},
+                    subtitle: 'Flash lors des notifications',
+                    value: _visualAlertEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _visualAlertEnabled = value;
+                      });
+                      _saveSetting('visualAlertEnabled', value);
+                    },
                   ),
                 ],
               ),
