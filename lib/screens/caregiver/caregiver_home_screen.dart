@@ -427,221 +427,6 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
       ),
     );
   }
-
-  Widget _buildElderProfileCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: _showElderProfileDialog,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                // Avatar
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _elderOnline == true ? Colors.green : Colors.red,
-                      width: 2,
-                    ),
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.purple.shade300,
-                          Colors.purple.shade500,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Senior lié',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          _PresenceDot(online: _elderOnline == true),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Voir le profil complet',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.blue.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Arrow
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey.shade400,
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureListTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: Colors.blue.shade600, size: 22),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 14,
-          color: Colors.grey.shade400,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Widget _buildNoElderCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.person_off_outlined,
-            size: 60,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Aucun senior lié',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Veuillez vous reconnecter ou contacter le support pour lier un compte senior.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () {
-              // Contact support or retry
-            },
-            icon: const Icon(Icons.support_agent),
-            label: const Text('Contacter le support'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// Contenu principal de l’écran d’accueil aidant quand un senior est lié.
@@ -660,32 +445,8 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
-        const Row(
-          children: [
-            Icon(Icons.flash_on, color: Colors.orange, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'Actions rapides',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
         CaregiverQuickActionsSection(elderId: elderId, elderName: elderName),
         const SizedBox(height: 24),
-        CaregiverAdditionalFeaturesSection(
-          elderId: elderId,
-          elderName: elderName,
-          onMedicationsTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CaregiverMedicationsScreen(),
-              ),
-            );
-          },
-        ),
       ],
     );
   }
@@ -719,11 +480,26 @@ class CaregiverQuickActionsSection extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: QuickActionCard(
-                title: 'Santé',
-                subtitle: 'Constantes',
-                icon: FontAwesomeIcons.heartPulse,
-                gradientColors: [Colors.red.shade400, Colors.red.shade600],
-                onTap: () {},
+                title: 'Médicaments',
+                subtitle: 'Gérer les traitements',
+                icon: Icons.medical_services,
+                gradientColors: [
+                  Colors.purple.shade400,
+                  Colors.purple.shade600,
+                ],
+                onTap: () {
+                  if (elderId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CaregiverMedicationsScreen(
+                          elderId: elderId!,
+                          elderName: elderName ?? 'Senior',
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
             ),
           ],
@@ -772,139 +548,6 @@ class CaregiverQuickActionsSection extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-/// Liste des fonctionnalités additionnelles proposées à l’aidant.
-class CaregiverAdditionalFeaturesSection extends StatelessWidget {
-  final String? elderId;
-  final String? elderName;
-  final VoidCallback? onAppointmentsTap;
-  final VoidCallback? onMedicationsTap;
-  final VoidCallback? onEmergencyTap;
-
-  const CaregiverAdditionalFeaturesSection({
-    super.key,
-    this.elderId,
-    this.elderName,
-    this.onAppointmentsTap,
-    this.onMedicationsTap,
-    this.onEmergencyTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.more_horiz, color: Colors.grey.shade700, size: 20),
-            const SizedBox(width: 8),
-            const Text(
-              'Plus de fonctionnalités',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _CaregiverFeatureListTile(
-          icon: Icons.assignment_outlined,
-          title: 'Tâches quotidiennes',
-          subtitle: 'Gérer les tâches de ${elderName ?? 'votre senior'}',
-          onTap: () {
-            if (elderId != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CaregiverTasksScreen(
-                    elderId: elderId!,
-                    elderName: elderName ?? 'Senior',
-                  ),
-                ),
-              );
-            }
-          },
-        ),
-        const SizedBox(height: 8),
-        _CaregiverFeatureListTile(
-          icon: Icons.calendar_today_outlined,
-          title: 'Rendez-vous médicaux',
-          subtitle: 'Gérer les consultations',
-          onTap: onAppointmentsTap,
-        ),
-        const SizedBox(height: 8),
-        _CaregiverFeatureListTile(
-          icon: Icons.medication_outlined,
-          title: 'Médicaments',
-          subtitle: 'Rappels de prise',
-          onTap: onMedicationsTap,
-        ),
-        const SizedBox(height: 8),
-        _CaregiverFeatureListTile(
-          icon: Icons.phone_outlined,
-          title: 'Appel d\'urgence',
-          subtitle: 'Contacter rapidement',
-          onTap: onEmergencyTap,
-        ),
-      ],
-    );
-  }
-}
-
-class _CaregiverFeatureListTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  const _CaregiverFeatureListTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        onTap: onTap ?? () {},
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: Colors.blue.shade600, size: 22),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 14,
-          color: Colors.grey.shade400,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
     );
   }
 }
