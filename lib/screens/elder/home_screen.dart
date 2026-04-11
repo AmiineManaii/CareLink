@@ -20,6 +20,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/sos_button.dart';
 import '../../widgets/quick_action_card.dart';
+import 'color_memory_game.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
@@ -524,6 +525,20 @@ $mapLink
                     icon: FontAwesomeIcons.triangleExclamation,
                     gradientColors: [Colors.orange[500]!, Colors.orange[600]!],
                     onTap: () => widget.onNavigate('alerts'),
+                  ),
+                  QuickActionCard(
+                    title: 'Mémoire',
+                    subtitle: 'Jeu de couleurs',
+                    icon: FontAwesomeIcons.brain,
+                    gradientColors: [Colors.red[400]!, Colors.red[600]!],
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ColorMemoryGame(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
