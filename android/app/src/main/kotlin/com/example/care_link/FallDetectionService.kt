@@ -28,7 +28,7 @@ import android.os.Looper
 
 class FallDetectionService : Service(), SensorEventListener {
 
-    private lateinit var sensorManager: SensorManager
+    private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
     private var gyroscope: Sensor? = null // Ajout Gyroscope
     private var lastFallTime: Long = 0
@@ -79,22 +79,33 @@ class FallDetectionService : Service(), SensorEventListener {
         // 1. Démarrage immédiat en foreground
         startForeground(1, createNotification())
 
-        // 2. Initialisation des capteurs
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) // Utilisation du Gyroscope
+        // 2. Initialisation des capteurs (UNIQUEMENT SI SENIOR)
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val role = prefs.getString("flutter.role", "")
         
-        accelerometer?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) // Plus rapide pour capter l'impact
-        }
-        gyroscope?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        if (role == "personne_agee" || role == "") {
+            val sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            sensorManager = sm
+            accelerometer = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            gyroscope = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+            
+            accelerometer?.let {
+                sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+            }
+            gyroscope?.let {
+                sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            android.util.Log.d("DEBUG_SERVICE", "Capteurs de chute activés (rôle: $role)")
+        } else {
+            android.util.Log.d("DEBUG_SERVICE", "Capteurs de chute DÉSACTIVÉS pour l'aidant")
         }
 
         // 3. Acquisition du WakeLock
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FallDetectionService::WakeLock")
-        wakeLock?.acquire()
+        if (role == "personne_agee" || role == "") {
+            wakeLock?.acquire()
+        }
 
         // 4. Initialisation du lecteur audio silencieux (Astuce pour garder le service en vie)
         try {
@@ -246,7 +257,7 @@ class FallDetectionService : Service(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         try {
-            sensorManager.unregisterListener(this)
+            sensorManager?.unregisterListener(this)
             wakeLock?.let {
                 if (it.isHeld) it.release()
             }

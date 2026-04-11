@@ -45,12 +45,19 @@ class MainActivity : FlutterActivity() {
              pendingFallEvent = true
         }
 
-        // Démarrer le service immédiatement
-        val serviceIntent = Intent(this, FallDetectionService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
+        // Démarrer le service uniquement si l'utilisateur est un senior (pas un aidant)
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val role = prefs.getString("flutter.role", "")
+        if (role == "personne_agee" || role == "") {
+             val serviceIntent = Intent(this, FallDetectionService::class.java)
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                 startForegroundService(serviceIntent)
+             } else {
+                 startService(serviceIntent)
+             }
+             android.util.Log.d("DEBUG_SERVICE", "Service de chute démarré (rôle: $role)")
         } else {
-            startService(serviceIntent)
+             android.util.Log.d("DEBUG_SERVICE", "Service de chute NON démarré pour l'aidant")
         }
     }
 

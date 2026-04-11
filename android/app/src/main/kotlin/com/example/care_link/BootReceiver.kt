@@ -11,11 +11,17 @@ class BootReceiver : BroadcastReceiver() {
             intent.action == "android.intent.action.QUICKBOOT_POWERON" || 
             intent.action == Intent.ACTION_REBOOT) {
             
-            val serviceIntent = Intent(context, FallDetectionService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
+            // Démarrer uniquement si senior
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val role = prefs.getString("flutter.role", "")
+            
+            if (role == "personne_agee" || role == "") {
+                val serviceIntent = Intent(context, FallDetectionService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
             }
         }
     }

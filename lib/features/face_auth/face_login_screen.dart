@@ -192,6 +192,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
             await ctrl?.dispose();
           } catch (_) {}
           await InMemoryFaceStorage().setLoggedIn(true);
+          await InMemoryFaceStorage().setRole('personne_agee');
           await InMemoryFaceStorage().setElderId(elderId);
           await InMemoryFaceStorage().setElderCode(elderCode);
           ScaffoldMessenger.of(

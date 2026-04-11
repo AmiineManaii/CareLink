@@ -269,6 +269,8 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
       } catch (_) {}
       if (!mounted) return;
       if (created) {
+        await InMemoryFaceStorage().setRole('personne_agee');
+        await InMemoryFaceStorage().setLoggedIn(true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Nouvel utilisateur créé")),
         );
