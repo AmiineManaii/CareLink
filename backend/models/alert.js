@@ -6,6 +6,8 @@ const AlertSchema = new mongoose.Schema(
     caregiverId: { type: mongoose.Schema.Types.ObjectId, ref: "Caregiver", required: true },
     type: { type: String, default: "sos" },
     message: { type: String },
+    latitude: { type: String },
+    longitude: { type: String },
     read: { type: Boolean, default: false },
   },
   { timestamps: true }

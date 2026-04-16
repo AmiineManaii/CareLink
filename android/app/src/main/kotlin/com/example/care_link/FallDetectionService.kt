@@ -62,6 +62,7 @@ class FallDetectionService : Service(), SensorEventListener {
 
     private var tts: android.speech.tts.TextToSpeech? = null
     private val lastNotificationTimes = mutableMapOf<String, Long>()
+    private var isFallDetectionRegistered = false
 
     override fun onCreate() {
         super.onCreate()
@@ -79,35 +80,10 @@ class FallDetectionService : Service(), SensorEventListener {
         // 1. Démarrage immédiat en foreground
         startForeground(1, createNotification())
 
-        // 2. Initialisation des capteurs (UNIQUEMENT SI SENIOR)
-        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val role = prefs.getString("flutter.role", "")
-        
-        if (role == "personne_agee" || role == "") {
-            val sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-            sensorManager = sm
-            accelerometer = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-            gyroscope = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-            
-            accelerometer?.let {
-                sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
-            }
-            gyroscope?.let {
-                sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-            }
-            android.util.Log.d("DEBUG_SERVICE", "Capteurs de chute activés (rôle: $role)")
-        } else {
-            android.util.Log.d("DEBUG_SERVICE", "Capteurs de chute DÉSACTIVÉS pour l'aidant")
-        }
+        // 2. Initialisation des capteurs (via refreshConfiguration)
+        refreshConfiguration()
 
-        // 3. Acquisition du WakeLock
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FallDetectionService::WakeLock")
-        if (role == "personne_agee" || role == "") {
-            wakeLock?.acquire()
-        }
-
-        // 4. Initialisation du lecteur audio silencieux (Astuce pour garder le service en vie)
+        // 3. Initialisation du lecteur audio silencieux (Astuce pour garder le service en vie)
         try {
             mediaPlayer = MediaPlayer.create(this, R.raw.silence)
             mediaPlayer?.isLooping = true
@@ -119,7 +95,49 @@ class FallDetectionService : Service(), SensorEventListener {
         android.util.Log.d("DEBUG_SERVICE", "FallDetectionService démarré et protégé")
     }
 
+    private fun refreshConfiguration() {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val role = prefs.getString("flutter.role", "")
+        
+        val sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        sensorManager = sm
+
+        if (role == "personne_agee") {
+            if (!isFallDetectionRegistered) {
+                accelerometer = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+                gyroscope = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+                
+                accelerometer?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                }
+                gyroscope?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+                }
+                
+                // Acquisition du WakeLock
+                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FallDetectionService::WakeLock")
+                wakeLock?.acquire()
+                
+                isFallDetectionRegistered = true
+                android.util.Log.d("DEBUG_SERVICE", "Détection de chute ACTIVÉE (rôle: $role)")
+            }
+        } else {
+            if (isFallDetectionRegistered) {
+                sensorManager?.unregisterListener(this)
+                wakeLock?.let {
+                    if (it.isHeld) it.release()
+                }
+                isFallDetectionRegistered = false
+                android.util.Log.d("DEBUG_SERVICE", "Détection de chute DÉSACTIVÉE (rôle: $role)")
+            }
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Rafraîchir la config à chaque fois que le service est "pingé" (ex: changement de rôle)
+        refreshConfiguration()
+
         if (intent?.action == ACTION_CANCEL_SOS) {
             cancelFallCountdown()
         } else if (intent?.action == ACTION_MEDICATION_REMINDER) {

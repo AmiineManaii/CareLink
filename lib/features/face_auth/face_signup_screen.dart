@@ -10,6 +10,7 @@ import 'package:care_link/features/face_auth/face_utils.dart';
 import 'package:care_link/main.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 
@@ -271,6 +272,15 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
       if (created) {
         await InMemoryFaceStorage().setRole('personne_agee');
         await InMemoryFaceStorage().setLoggedIn(true);
+
+        // Ping le service pour activer la détection de chute (rôle senior)
+        try {
+          const channel = MethodChannel('fall_channel');
+          await channel.invokeMethod('startService');
+        } catch (e) {
+          debugPrint('Error pinging service: $e');
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Nouvel utilisateur créé")),
         );
@@ -287,6 +297,15 @@ class _FaceSignupScreenState extends State<FaceSignupScreen> {
         );
         await InMemoryFaceStorage().setRole('personne_agee');
         await InMemoryFaceStorage().setLoggedIn(true);
+
+        // Ping le service pour activer la détection de chute (rôle senior)
+        try {
+          const channel = MethodChannel('fall_channel');
+          await channel.invokeMethod('startService');
+        } catch (e) {
+          debugPrint('Error pinging service: $e');
+        }
+
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const ElderlyNavigation()),

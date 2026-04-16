@@ -9,6 +9,7 @@ import 'package:care_link/features/face_auth/face_utils.dart';
 import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 
@@ -195,6 +196,15 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> {
           await InMemoryFaceStorage().setRole('personne_agee');
           await InMemoryFaceStorage().setElderId(elderId);
           await InMemoryFaceStorage().setElderCode(elderCode);
+
+          // Ping le service pour activer la détection de chute (rôle senior)
+          try {
+            const channel = MethodChannel('fall_channel');
+            await channel.invokeMethod('startService');
+          } catch (e) {
+            debugPrint('Error pinging service: $e');
+          }
+
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text("Utilisateur reconnu")));

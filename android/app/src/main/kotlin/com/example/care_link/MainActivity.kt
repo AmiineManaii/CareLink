@@ -45,20 +45,14 @@ class MainActivity : FlutterActivity() {
              pendingFallEvent = true
         }
 
-        // Démarrer le service uniquement si l'utilisateur est un senior (pas un aidant)
-        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val role = prefs.getString("flutter.role", "")
-        if (role == "personne_agee" || role == "") {
-             val serviceIntent = Intent(this, FallDetectionService::class.java)
-             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                 startForegroundService(serviceIntent)
-             } else {
-                 startService(serviceIntent)
-             }
-             android.util.Log.d("DEBUG_SERVICE", "Service de chute démarré (rôle: $role)")
+        // Démarrer le service de fond (toujours démarré pour les rappels/notifications)
+        val serviceIntent = Intent(this, FallDetectionService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
         } else {
-             android.util.Log.d("DEBUG_SERVICE", "Service de chute NON démarré pour l'aidant")
+            startService(serviceIntent)
         }
+        android.util.Log.d("DEBUG_SERVICE", "Service de fond démarré")
     }
 
     private fun scheduleAlarm(id: String, name: String, dosage: String, timestamp: Long, isTask: Boolean = false) {
@@ -157,6 +151,10 @@ class MainActivity : FlutterActivity() {
                         startService(intent)
                     }
                     result.success("Service démarré")
+                } else if (call.method == "stopService") {
+                    val intent = Intent(this, FallDetectionService::class.java)
+                    stopService(intent)
+                    result.success("Service arrêté")
                 } else if (call.method == "scheduleMedication") {
                     val id = call.argument<String>("id")
                     val name = call.argument<String>("name")

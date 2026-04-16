@@ -18,6 +18,8 @@ import '../../utils/label_translations.dart';
 import '../../widgets/accessibility/detection_result_dialog.dart';
 import '../../widgets/accessibility/ocr_result_dialog.dart';
 import '../../widgets/accessibility/tts_section.dart';
+import '../../services/api_service.dart';
+import 'dart:convert';
 
 class AccessibilityScreen extends StatefulWidget {
   const AccessibilityScreen({super.key});
@@ -103,6 +105,49 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
 
       setState(() => _isScanning = true);
 
+      // 1. Tenter l'IA locale via le backend (Ollama)
+      try {
+        final bytes = await file.readAsBytes();
+        final String base64Image = base64Encode(bytes);
+        final response = await ApiService().analyzeImage(base64Image);
+        final String aiResult = response['result'] ?? "";
+
+        if (aiResult.isNotEmpty) {
+          final String fr = LabelTranslations.translate(aiResult.toLowerCase());
+          final String resultText = "C'est $fr.";
+
+          setState(() => _isScanning = false);
+          _flutterTts.speak(resultText);
+
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => DetectionResultDialog(
+              imagePath: file.path,
+              mlObjects: const [],
+              results: [
+                {
+                  "label": aiResult.toLowerCase(),
+                  "labelFr": fr,
+                  "confidence": 1.0,
+                  "source": "ollama",
+                },
+              ],
+              resultText: resultText,
+              onReplay: () => _flutterTts.speak(resultText),
+              onDismiss: () {
+                _flutterTts.stop();
+                Navigator.pop(context);
+              },
+            ),
+          );
+          return; // Succès avec l'IA locale
+        }
+      } catch (e) {
+        debugPrint('⚠️ Erreur IA locale, repli sur TFLite: $e');
+      }
+
+      // 2. Repli sur l'ancienne méthode (TFLite) si l'IA locale échoue ou est vide
       final mlObjects = await _mlService.detectObjects(file.path);
       final bytes = await File(file.path).readAsBytes();
       final fullImg = img.decodeImage(bytes);
@@ -110,27 +155,45 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       final List<Map<String, dynamic>> finalResults = [];
 
       if (mlObjects.isEmpty || fullImg == null) {
-        final result = await _mlService.classifyImage(fullImg ?? img.Image(300, 300));
-        if (result != null) finalResults.add(result);
+        final result = await _mlService.classifyImage(
+          fullImg ?? img.Image(300, 300),
+        );
+        if (result != null) {
+          finalResults.add({...result, "source": "tflite"});
+        }
       } else {
         for (final obj in mlObjects) {
           final bbox = obj.boundingBox;
           final int margin = ((bbox.width + bbox.height) * 0.05).toInt();
           final int left = (bbox.left - margin).clamp(0, fullImg.width).toInt();
           final int top = (bbox.top - margin).clamp(0, fullImg.height).toInt();
-          final int right = (bbox.right + margin).clamp(0, fullImg.width).toInt();
-          final int bottom = (bbox.bottom + margin).clamp(0, fullImg.height).toInt();
-          final croppedImg = img.copyCrop(fullImg, left, top, right - left, bottom - top);
+          final int right = (bbox.right + margin)
+              .clamp(0, fullImg.width)
+              .toInt();
+          final int bottom = (bbox.bottom + margin)
+              .clamp(0, fullImg.height)
+              .toInt();
+          final croppedImg = img.copyCrop(
+            fullImg,
+            left,
+            top,
+            right - left,
+            bottom - top,
+          );
 
           final tfliteResult = await _mlService.classifyImage(croppedImg);
           if (tfliteResult != null) {
-            finalResults.add({...tfliteResult, "box": bbox});
+            finalResults.add({
+              ...tfliteResult,
+              "box": bbox,
+              "source": "tflite",
+            });
           } else if (obj.labels.isNotEmpty) {
             finalResults.add({
               "label": obj.labels.first.text.toLowerCase(),
               "confidence": obj.labels.first.confidence,
               "box": bbox,
-              "fromMlKit": true,
+              "source": "mlkit",
             });
           }
         }
@@ -151,8 +214,8 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       final String resultText = detectedLabels.isEmpty
           ? "Je n'arrive pas à identifier d'objets ici."
           : detectedLabels.length == 1
-              ? "C'est ${detectedLabels.first}."
-              : "Je vois : ${detectedLabels.join(', ')}.";
+          ? "C'est ${detectedLabels.first}."
+          : "Je vois : ${detectedLabels.join(', ')}.";
 
       _flutterTts.speak(resultText);
       showDialog(
@@ -164,7 +227,10 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
           results: withFr,
           resultText: resultText,
           onReplay: () => _flutterTts.speak(resultText),
-          onDismiss: () { _flutterTts.stop(); Navigator.pop(context); },
+          onDismiss: () {
+            _flutterTts.stop();
+            Navigator.pop(context);
+          },
         ),
       );
     } catch (e) {
@@ -197,7 +263,10 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
           text: text,
           fontSize: _fontSize,
           onRead: () => _flutterTts.speak(text),
-          onDismiss: () { _flutterTts.stop(); Navigator.pop(context); },
+          onDismiss: () {
+            _flutterTts.stop();
+            Navigator.pop(context);
+          },
         ),
       );
     } catch (e) {
@@ -241,16 +310,19 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         title: const Text('Texte transcrit', style: TextStyle(fontSize: 26)),
         content: Text(text, style: const TextStyle(fontSize: 22)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK', style: TextStyle(fontSize: 22))),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK', style: TextStyle(fontSize: 22)),
+          ),
         ],
       ),
     );
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message, style: const TextStyle(fontSize: 20)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message, style: const TextStyle(fontSize: 20))),
+    );
   }
 
   // ── Build ──────────────────────────────────────────────────────
@@ -271,7 +343,9 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
               title: 'C\'est quoi ça ?',
               subtitle: 'Identifier un objet (bouteille, médicament, chaise…)',
               gradientColors: [Colors.teal[600]!, Colors.teal[700]!],
-              onPressed: (_isScanning || !_mlService.isModelLoaded) ? null : _handleObjectLabeling,
+              onPressed: (_isScanning || !_mlService.isModelLoaded)
+                  ? null
+                  : _handleObjectLabeling,
               isLoading: _isScanning,
               buttonText: 'Identifier un objet',
             ),
@@ -292,7 +366,9 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
               subtitle: 'Dicter un message ou une note',
               gradientColors: [Colors.purple[600]!, Colors.purple[700]!],
               onPressed: _handleSpeechToText,
-              buttonText: _isListening ? 'Écoute en cours…' : 'Commencer à parler',
+              buttonText: _isListening
+                  ? 'Écoute en cours…'
+                  : 'Commencer à parler',
               buttonBackgroundColor: _isListening ? Colors.red[600] : null,
             ),
             const SizedBox(height: 40),
@@ -314,7 +390,10 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
               },
             ),
             const SizedBox(height: 40),
-            const Text('Autres paramètres', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+            const Text(
+              'Autres paramètres',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 20),
             _buildBigSwitch(
               icon: FontAwesomeIcons.eye,
@@ -342,32 +421,48 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
   }
 
   Widget _buildHeader() {
-    return Row(children: [
-      const Expanded(
-        child: Text('Que voulez-vous faire ?', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
-      ),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-            color: _mlService.isModelLoaded ? Colors.teal[50] : Colors.orange[50],
-            borderRadius: BorderRadius.circular(20)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(
-            _mlService.isModelLoaded ? Icons.check_circle : Icons.hourglass_empty,
-            size: 18,
-            color: _mlService.isModelLoaded ? Colors.teal : Colors.orange,
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Que voulez-vous faire ?',
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(width: 6),
-          Text(
-            _mlService.isModelLoaded ? 'IA prête' : 'Chargement…',
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: _mlService.isModelLoaded ? Colors.teal[700] : Colors.orange[700]),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: _mlService.isModelLoaded
+                ? Colors.teal[50]
+                : Colors.orange[50],
+            borderRadius: BorderRadius.circular(20),
           ),
-        ]),
-      ),
-    ]);
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _mlService.isModelLoaded
+                    ? Icons.check_circle
+                    : Icons.hourglass_empty,
+                size: 18,
+                color: _mlService.isModelLoaded ? Colors.teal : Colors.orange,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _mlService.isModelLoaded ? 'IA prête' : 'Chargement…',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: _mlService.isModelLoaded
+                      ? Colors.teal[700]
+                      : Colors.orange[700],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildBigSwitch({
@@ -386,14 +481,23 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
           BoxShadow(color: Colors.grey.withOpacity(0.12), blurRadius: 12),
         ],
       ),
-      child: Row(children: [
-        Icon(icon, size: 40, color: Colors.grey[700]),
-        const SizedBox(width: 24),
-        Expanded(
-          child: Text(title, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w500)),
-        ),
-        Switch(value: value, onChanged: onChanged, activeColor: Colors.teal[600]),
-      ]),
+      child: Row(
+        children: [
+          Icon(icon, size: 40, color: Colors.grey[700]),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w500),
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: Colors.teal[600],
+          ),
+        ],
+      ),
     );
   }
 }

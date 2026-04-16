@@ -603,7 +603,7 @@ hoopskirt
 horizontal bar
 horse cart
 hourglass
-iPod
+smartphone
 iron
 jack-o'-lantern
 jean
@@ -616,7 +616,7 @@ kimono
 knee pad
 knot
 lab coat
-ladle
+spoon
 lampshade
 laptop
 lawn mower
@@ -889,7 +889,7 @@ vestment
 viaduct
 violin
 volleyball
-waffle iron
+waffle pron
 wall clock
 wallet
 wardrobe

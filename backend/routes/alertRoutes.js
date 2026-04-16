@@ -36,9 +36,23 @@ router.post("/sos", async (req, res) => {
       caregiverId: caregiver._id,
       type: "sos",
       message: parts.join(" – "),
+      latitude,
+      longitude,
     });
 
     res.json({ ok: true, alertId: alert._id });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/elder/:id", async (req, res) => {
+  try {
+    const alerts = await Alert.find({ elderId: req.params.id })
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json(alerts);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "server_error" });

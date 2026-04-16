@@ -98,6 +98,20 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> analyzeImage(String base64Image) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/ai/analyze-image'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'image': base64Image}),
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      final errorData = jsonDecode(resp.body);
+      throw Exception(errorData['error'] ?? 'Failed to analyze image');
+    }
+  }
+
   Future<Map<String, dynamic>> caregiverSignup({
     required String email,
     required String password,
@@ -175,6 +189,18 @@ class ApiService {
     }
   }
 
+  Future<List<dynamic>> getElderAlerts(String elderId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/alerts/elder/$elderId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to load elder alerts');
+    }
+  }
+
   Future<void> markAlertAsRead(String alertId) async {
     await http.post(
       Uri.parse('$baseUrl/alerts/$alertId/read'),
@@ -196,7 +222,10 @@ class ApiService {
     }
   }
 
-  Future<void> addMedication(Map<String, dynamic> medicationData, {File? image}) async {
+  Future<void> addMedication(
+    Map<String, dynamic> medicationData, {
+    File? image,
+  }) async {
     final uri = Uri.parse('$baseUrl/medications');
     final request = http.MultipartRequest('POST', uri);
 
@@ -213,9 +242,7 @@ class ApiService {
 
     // Add file
     if (image != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath('photo', image.path),
-      );
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
     }
 
     final streamedResponse = await request.send();
@@ -226,7 +253,11 @@ class ApiService {
     }
   }
 
-  Future<void> updateMedication(String id, Map<String, dynamic> medicationData, {File? image}) async {
+  Future<void> updateMedication(
+    String id,
+    Map<String, dynamic> medicationData, {
+    File? image,
+  }) async {
     final uri = Uri.parse('$baseUrl/medications/$id');
     final request = http.MultipartRequest('PUT', uri);
 
@@ -243,9 +274,7 @@ class ApiService {
 
     // Add file
     if (image != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath('photo', image.path),
-      );
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
     }
 
     final streamedResponse = await request.send();
@@ -300,7 +329,10 @@ class ApiService {
     return data['tasks'] as List<dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateTask(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateTask(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     final resp = await http.put(
       Uri.parse('$baseUrl/tasks/$id'),
       headers: {'Content-Type': 'application/json'},

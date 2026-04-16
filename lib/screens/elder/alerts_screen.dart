@@ -1,56 +1,153 @@
 import 'package:flutter/material.dart';
 import 'package:care_link/features/face_auth/face_storage.dart';
-import 'package:care_link/main.dart';
+import 'package:care_link/services/api_service.dart';
+import 'package:intl/intl.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class AlertsScreen extends StatelessWidget {
+class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
 
-  Future<void> _logout(BuildContext context) async {
-    await InMemoryFaceStorage().setLoggedIn(false);
-    if (!context.mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const StartupGate()),
-      (route) => false,
-    );
+  @override
+  State<AlertsScreen> createState() => _AlertsScreenState();
+}
+
+class _AlertsScreenState extends State<AlertsScreen> {
+  List<dynamic> _alerts = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAlerts();
+  }
+
+  Future<void> _fetchAlerts() async {
+    try {
+      final elderId = InMemoryFaceStorage().getElderId();
+      if (elderId != null) {
+        final alerts = await ApiService().getElderAlerts(elderId);
+        setState(() {
+          _alerts = alerts;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching elder alerts: $e");
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Alertes')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Déconnexion',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Se déconnecter tout en gardant la reconnaissance faciale.',
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _logout(context),
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Se déconnecter'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      appBar: AppBar(
+        title: const Text('Historique des SOS'),
+        centerTitle: true,
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _alerts.isEmpty
+              ? const Center(
+                  child: Text(
+                    "Aucun SOS envoyé",
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _fetchAlerts,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _alerts.length,
+                    itemBuilder: (context, index) {
+                      final alert = _alerts[index];
+                      final date = DateTime.parse(alert['createdAt']).toLocal();
+                      final dateStr = DateFormat('dd/MM/yyyy').format(date);
+                      final timeStr = DateFormat('HH:mm').format(date);
+                      final lat = alert['latitude'] ?? 'N/A';
+                      final lon = alert['longitude'] ?? 'N/A';
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        FontAwesomeIcons.triangleExclamation,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        'SOS Déclenché',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    timeStr,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 24),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Date: $dateStr',
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on, size: 18, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Latitude: $lat',
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                        Text(
+                                          'Longitude: $lon',
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
     );
   }
 }

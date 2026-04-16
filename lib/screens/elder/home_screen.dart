@@ -21,6 +21,7 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/sos_button.dart';
 import '../../widgets/quick_action_card.dart';
 import 'color_memory_game.dart';
+import '../../main.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
@@ -259,6 +260,26 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _sosPressed = false);
   }
 
+  Future<void> _logout() async {
+    await InMemoryFaceStorage().setLoggedIn(false);
+    await InMemoryFaceStorage().setRole(''); // Clear role on logout
+
+    // Ping le service pour rafraîchir la config (désactiver capteurs)
+    try {
+      const channel = MethodChannel('fall_channel');
+      await channel.invokeMethod('startService');
+    } catch (e) {
+      debugPrint('Error pinging service: $e');
+    }
+
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const StartupGate()),
+      (route) => false,
+    );
+  }
+
   Future<void> _initNotifications() async {
     tz_data.initializeTimeZones();
 
@@ -463,7 +484,19 @@ $mapLink
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Accueil', showBackButton: false),
+      backgroundColor: const Color(
+        0xFFF0F9F9,
+      ), // Teal très très clair (Teal 50)
+      appBar: CustomAppBar(
+        title: 'Accueil',
+        showBackButton: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.black),
+            onPressed: () => _logout(),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {},
         child: SingleChildScrollView(
@@ -494,43 +527,61 @@ $mapLink
                   QuickActionCard(
                     title: 'Médicaments',
                     subtitle: 'Rappels',
-                    icon: FontAwesomeIcons.bell,
-                    gradientColors: [Colors.purple[500]!, Colors.purple[600]!],
+                    icon: FontAwesomeIcons.pills,
+                    gradientColors: const [
+                      Color(0xFF7E57C2),
+                      Color(0xFF5E35B1),
+                    ],
                     onTap: () => widget.onNavigate('medications'),
                   ),
                   QuickActionCard(
                     title: 'Mes Tâches',
                     subtitle: 'Quotidien',
                     icon: FontAwesomeIcons.listCheck,
-                    gradientColors: [Colors.blue[500]!, Colors.blue[600]!],
+                    gradientColors: const [
+                      Color(0xFF42A5F5),
+                      Color(0xFF1E88E5),
+                    ],
                     onTap: () => widget.onNavigate('daily_tasks'),
                   ),
                   QuickActionCard(
                     title: 'Contacts',
                     subtitle: 'Appel rapide',
                     icon: FontAwesomeIcons.phone,
-                    gradientColors: [Colors.green[500]!, Colors.green[600]!],
+                    gradientColors: const [
+                      Color(0xFF66BB6A),
+                      Color(0xFF43A047),
+                    ],
                     onTap: () => widget.onNavigate('contacts'),
                   ),
                   QuickActionCard(
                     title: 'Assistance',
                     subtitle: 'Outils vocaux',
                     icon: FontAwesomeIcons.volumeHigh,
-                    gradientColors: [Colors.blue[500]!, Colors.blue[600]!],
+                    gradientColors: const [
+                      Color(0xFF26A69A),
+                      Color(0xFF00897B),
+                    ],
                     onTap: () => widget.onNavigate('accessibility'),
                   ),
                   QuickActionCard(
                     title: 'Alertes',
                     subtitle: 'Historique',
                     icon: FontAwesomeIcons.triangleExclamation,
-                    gradientColors: [Colors.orange[500]!, Colors.orange[600]!],
+                    gradientColors: const [
+                      Color(0xFFFFA726),
+                      Color(0xFFFB8C00),
+                    ],
                     onTap: () => widget.onNavigate('alerts'),
                   ),
                   QuickActionCard(
                     title: 'Mémoire',
                     subtitle: 'Jeu de couleurs',
                     icon: FontAwesomeIcons.brain,
-                    gradientColors: [Colors.red[400]!, Colors.red[600]!],
+                    gradientColors: const [
+                      Color(0xFFEF5350),
+                      Color(0xFFE53935),
+                    ],
                     onTap: () {
                       Navigator.push(
                         context,

@@ -11,7 +11,9 @@ class MLService {
   ObjectDetector? _objectDetector;
   Interpreter? _interpreter;
   List<String>? _labels;
-  final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+  final TextRecognizer _textRecognizer = TextRecognizer(
+    script: TextRecognitionScript.latin,
+  );
 
   bool get isModelLoaded => _interpreter != null && _labels != null;
 
@@ -35,12 +37,13 @@ class MLService {
     try {
       final options = InterpreterOptions()..threads = 4;
       _interpreter = await Interpreter.fromAsset(
-        'assets/detection_final.tflite',
+        'assets/classifier.tflite',
         options: options,
       );
 
-      final raw = await rootBundle.loadString('assets/labels_90.txt');
-      _labels = raw.split('\n')
+      final raw = await rootBundle.loadString('assets/labels.txt');
+      _labels = raw
+          .split('\n')
           .map((l) => l.trim())
           .where((l) => l.isNotEmpty)
           .toList();
@@ -131,7 +134,9 @@ class MLService {
         final shape = outTensors[i].shape;
         if (shape.length == 2 && shape[0] == 1) {
           final data = (outputs[i] as List)[0] as List;
-          final isInt = data.every((e) => e is int || (e is double && e == e.toInt()));
+          final isInt = data.every(
+            (e) => e is int || (e is double && e == e.toInt()),
+          );
           if (isInt && data.any((e) => e != 0)) {
             classes ??= data.map((e) => (e as num).toInt()).toList();
           } else {
@@ -173,12 +178,12 @@ class MLService {
         }
       }
 
-      if (labelIdx < 0 || labelIdx >= _labels!.length || _labels![labelIdx] == "n/a") return null;
+      if (labelIdx < 0 ||
+          labelIdx >= _labels!.length ||
+          _labels![labelIdx] == "n/a")
+        return null;
 
-      return {
-        "label": _labels![labelIdx],
-        "confidence": maxScore,
-      };
+      return {"label": _labels![labelIdx], "confidence": maxScore};
     } catch (e) {
       debugPrint('❌ MLService._classifyImage: $e');
       return null;

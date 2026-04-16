@@ -2,6 +2,7 @@ import 'package:care_link/screens/caregiver/caregiver_navigation.dart';
 import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'caregiver_signup_screen.dart';
 
 class CaregiverLoginScreen extends StatefulWidget {
@@ -39,6 +40,15 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
           await InMemoryFaceStorage().setRole('aidant');
           await InMemoryFaceStorage().setLoggedIn(true);
           await InMemoryFaceStorage().setCaregiverId(caregiverId);
+
+          // Ping le service pour désactiver la détection de chute (rôle aidant)
+          try {
+            const channel = MethodChannel('fall_channel');
+            await channel.invokeMethod('startService');
+          } catch (e) {
+            debugPrint('Error pinging service: $e');
+          }
+
           if (res['linkedElderId'] != null) {
             await InMemoryFaceStorage().setElderId(res['linkedElderId']);
           }
@@ -161,11 +171,13 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
                                   : Icons.visibility_outlined,
                               color: Colors.grey.shade600,
                             ),
-                            onPressed: () =>
-                                setState(() => _obscurePassword = !_obscurePassword),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
-                          validator: (value) =>
-                              value?.isEmpty ?? true ? 'Mot de passe requis' : null,
+                          validator: (value) => value?.isEmpty ?? true
+                              ? 'Mot de passe requis'
+                              : null,
                         ),
                         const SizedBox(height: 24),
 
@@ -299,9 +311,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
         shadowColor: Colors.transparent,
       ),
@@ -331,10 +341,7 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
       children: [
         Text(
           'Pas encore de compte ? ',
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
         ),
         TextButton(
           onPressed: () {
