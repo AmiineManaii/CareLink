@@ -122,6 +122,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         _isLoading = false;
       });
 
+      // Annuler la notification programmée car le médicament a été pris
+      await MedicationReminderService.cancelMedication(med);
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Prise confirmée !")),
       );
@@ -143,8 +146,17 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       final elderId = InMemoryFaceStorage().getElderId();
       if (elderId == null) throw Exception("ID Senior introuvable");
 
+      // Récupérer les médicaments programmés
       final data = await ApiService().getMedications(elderId);
       final allMeds = data.map((json) => Medication.fromJson(json)).toList();
+
+      // Récupérer l'historique des prises d'aujourd'hui
+      final historyToday = await ApiService().getElderMedicationHistoryToday(elderId);
+      final takenTodayIds = historyToday
+          .map((log) => log['medicationId']['_id']?.toString() ?? log['medicationId']?.toString())
+          .where((id) => id != null)
+          .cast<String>()
+          .toSet();
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
@@ -183,10 +195,20 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
 
       setState(() {
         _medications = todayMeds;
+        _takenMedications.clear();
+        _takenMedications.addAll(takenTodayIds);
         _isLoading = false;
       });
 
-      await MedicationReminderService.scheduleForMedications(todayMeds);
+      // Programmer les notifications uniquement pour les médicaments NON pris
+      final untakenMeds = todayMeds.where((m) => !takenTodayIds.contains(m.id)).toList();
+      await MedicationReminderService.scheduleForMedications(untakenMeds);
+
+      // Annuler explicitement les notifications pour les médicaments pris aujourd'hui
+      for (var medId in takenTodayIds) {
+        final med = allMeds.firstWhere((m) => m.id == medId, orElse: () => allMeds.first);
+        await MedicationReminderService.cancelMedicationById(medId, med.times.length);
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -224,19 +246,26 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     final now = DateTime.now();
     final currentTimeStr = DateFormat('HH:mm').format(now);
 
+    // Trouver le prochain médicament non pris
     for (var med in _medications) {
-      for (var time in med.times) {
-        if (time.compareTo(currentTimeStr) > 0 &&
-            !_takenMedications.contains(med.id)) {
-          return med;
+      if (!_takenMedications.contains(med.id)) {
+        for (var time in med.times) {
+          if (time.compareTo(currentTimeStr) > 0) {
+            return med;
+          }
         }
       }
     }
-    // Fallback to the first untaken medication of the day
-    return _medications.firstWhere(
-      (med) => !_takenMedications.contains(med.id),
-      orElse: () => _medications.first,
-    );
+
+    // Si aucun médicament n'est prévu plus tard, chercher le premier non pris de la journée
+    try {
+      return _medications.firstWhere(
+        (med) => !_takenMedications.contains(med.id),
+      );
+    } catch (e) {
+      // Tous les médicaments sont pris
+      return null;
+    }
   }
 
   String _getNextTime(Medication med) {
@@ -271,19 +300,20 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (nextMed != null) ...[
-                      const Text(
-                        'Prochain médicament',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blueGrey,
-                        ),
+                    const Text(
+                      'Prochain médicament',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueGrey,
                       ),
-                      const SizedBox(height: 14),
-                      _buildNextMedicationCard(nextMed),
-                      const SizedBox(height: 36),
-                    ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (nextMed != null)
+                      _buildNextMedicationCard(nextMed)
+                    else
+                      _buildNoMoreMedicationsCard(),
+                    const SizedBox(height: 36),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -405,28 +435,44 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _speakMedication(med),
-            icon: const Icon(
-              FontAwesomeIcons.volumeHigh,
-              color: Colors.white,
-              size: 22,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoMoreMedicationsCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green[50]!, Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.green[200]!, width: 2),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.check_circle_outline, size: 60, color: Colors.green[600]),
+          const SizedBox(height: 16),
+          const Text(
+            'Bravo !',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
-            label: const Text(
-              'ÉCOUTER',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple[600],
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tous vos médicaments pour aujourd’hui ont été pris.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -446,29 +492,36 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             ? Colors.grey.withOpacity(0.1)
             : Colors.purple.withOpacity(0.15),
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () {
-                  if (!isTaken) {
-                    _showConfirmationDialog(med);
-                  }
-                },
-                child: Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: isTaken ? Colors.green[600] : Colors.grey[200],
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 4),
+              // Photo du médicament
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isTaken ? Colors.green[100]! : Colors.purple[100]!,
+                    width: 2,
                   ),
-                  child: Icon(
-                    isTaken ? FontAwesomeIcons.check : FontAwesomeIcons.clock,
-                    color: Colors.white,
-                    size: 30,
-                  ),
+                  image: med.photoUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(
+                            '${ApiService().baseUrl}${med.photoUrl}',
+                          ),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
+                child: med.photoUrl == null
+                    ? Icon(
+                        FontAwesomeIcons.pills,
+                        size: 24,
+                        color: isTaken ? Colors.green[600] : Colors.purple[600],
+                      )
+                    : null,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -506,18 +559,31 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   ],
                 ),
               ),
+              // Bouton d'action (Prendre ou Déjà pris)
               GestureDetector(
-                onTap: () => _speakMedication(med),
+                onTap: () {
+                  if (!isTaken) {
+                    _showConfirmationDialog(med);
+                  }
+                },
                 child: Container(
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: Colors.purple[50],
+                    color: isTaken ? Colors.green[600] : Colors.blue[600],
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isTaken ? Colors.green : Colors.blue)
+                            .withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Icon(
-                    FontAwesomeIcons.volumeHigh,
-                    color: Colors.purple[700],
+                    isTaken ? FontAwesomeIcons.check : FontAwesomeIcons.handHoldingMedical,
+                    color: Colors.white,
                     size: 24,
                   ),
                 ),

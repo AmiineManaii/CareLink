@@ -103,7 +103,24 @@ class MedicationReminderService {
   static Future<void> cancelMedication(Medication med) async {
     for (int i = 0; i < med.times.length; i++) {
       final alarmId = "${med.id}_$i";
-      await _channel.invokeMethod('cancelMedication', {'id': alarmId});
+      try {
+        await _channel.invokeMethod('cancelMedication', {'id': alarmId});
+        debugPrint("Annulation de la notification pour : $alarmId (${med.name})");
+      } catch (e) {
+        debugPrint("Erreur lors de l'annulation de la notification : $e");
+      }
+    }
+  }
+
+  static Future<void> cancelMedicationById(String medId, int timesCount) async {
+    for (int i = 0; i < timesCount; i++) {
+      final alarmId = "${medId}_$i";
+      try {
+        await _channel.invokeMethod('cancelMedication', {'id': alarmId});
+        debugPrint("Annulation de la notification (ID) pour : $alarmId");
+      } catch (e) {
+        debugPrint("Erreur lors de l'annulation de la notification par ID : $e");
+      }
     }
   }
 }

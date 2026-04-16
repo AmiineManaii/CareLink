@@ -5,6 +5,7 @@ import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
 import 'medications/caregiver_medication_history_screen.dart';
 import 'medications/caregiver_medications_screen.dart';
+import 'caregiver_contacts_screen.dart';
 import 'caregiver_alerts_screen.dart';
 import 'caregiver_tasks_screen.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -473,7 +474,27 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Spacer(),
+            Expanded(
+              child: QuickActionCard(
+                title: 'Contacts',
+                subtitle: 'Gérer les contacts',
+                icon: FontAwesomeIcons.addressBook,
+                gradientColors: [Colors.green.shade400, Colors.green.shade600],
+                onTap: () {
+                  if (elderId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CaregiverContactsScreen(
+                          elderId: elderId!,
+                          elderName: elderName ?? 'Senior',
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
           ],
         ),
       ],

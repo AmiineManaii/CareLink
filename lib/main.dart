@@ -16,6 +16,7 @@ import 'screens/elder/alerts_screen.dart';
 import 'screens/elder/daily_tasks_screen.dart';
 import 'screens/caregiver/caregiver_login_screen.dart';
 import 'screens/caregiver/caregiver_navigation.dart';
+import 'services/permission_service.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:async';
 
@@ -82,6 +83,7 @@ class StartupGate extends StatelessWidget {
   }
 
   Future<bool> _initializeAndCheck() async {
+    await PermissionService.requestAllPermissions();
     await InMemoryFaceStorage().initialize();
     return await InMemoryFaceStorage().isLoggedIn();
   }

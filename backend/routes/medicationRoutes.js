@@ -69,6 +69,28 @@ router.get('/history/:caregiverId', async (req, res) => {
   }
 });
 
+// Route pour récupérer l'historique des prises d'aujourd'hui pour un senior
+router.get('/history/elder/:elderId/today', async (req, res) => {
+  try {
+    const { elderId } = req.params;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const history = await MedicationLog.find({
+      elderId,
+      takenAt: { $gte: startOfDay, $lte: endOfDay }
+    }).populate('medicationId', 'name');
+
+    res.json(history);
+  } catch (error) {
+    console.error('Erreur historique aujourd’hui senior:', error);
+    res.status(500).json({ error: 'Erreur serveur interne' });
+  }
+});
+
 // Add medication with optional photo
 router.post('/', upload.single('photo'), async (req, res) => {
   try {

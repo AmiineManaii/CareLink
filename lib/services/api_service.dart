@@ -337,6 +337,18 @@ class ApiService {
     }
   }
 
+  Future<List<dynamic>> getElderMedicationHistoryToday(String elderId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/medications/history/elder/$elderId/today'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to load elder today medication history');
+    }
+  }
+
   // --- TASKS ---
   Future<Map<String, dynamic>> addTask({
     required String elderId,
@@ -387,6 +399,46 @@ class ApiService {
     final resp = await http.delete(Uri.parse('$baseUrl/tasks/$id'));
     if (resp.statusCode != 200) {
       throw Exception('Failed to delete task');
+    }
+  }
+
+  // --- CONTACTS ---
+  Future<List<dynamic>> getContacts(String elderId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/contacts/elder/$elderId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to load contacts');
+    }
+  }
+
+  Future<void> addContact(Map<String, dynamic> contactData, {File? image}) async {
+    final uri = Uri.parse('$baseUrl/contacts');
+    final request = http.MultipartRequest('POST', uri);
+
+    contactData.forEach((key, value) {
+      if (value != null) request.fields[key] = value.toString();
+    });
+
+    if (image != null) {
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to add contact: ${response.body}');
+    }
+  }
+
+  Future<void> deleteContact(String id) async {
+    final resp = await http.delete(Uri.parse('$baseUrl/contacts/$id'));
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to delete contact');
     }
   }
 }

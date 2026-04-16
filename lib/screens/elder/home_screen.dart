@@ -130,6 +130,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final data = await ApiService().getMedications(elderId);
       final allMeds = data.map((json) => Medication.fromJson(json)).toList();
 
+      // Récupérer l'historique des prises d'aujourd'hui pour ne pas notifier les déjà pris
+      final historyToday = await ApiService().getElderMedicationHistoryToday(elderId);
+      final takenTodayIds = historyToday
+          .map((log) => log['medicationId']['_id']?.toString() ?? log['medicationId']?.toString())
+          .where((id) => id != null)
+          .cast<String>()
+          .toSet();
+
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
 
@@ -159,8 +167,17 @@ class _HomeScreenState extends State<HomeScreen> {
         return true;
       }).toList();
 
-      await MedicationReminderService.scheduleForMedications(todayMeds);
-      debugPrint("Scheduled ${todayMeds.length} medications from Home");
+      // Programmer uniquement les médicaments NON pris
+      final untakenMeds = todayMeds.where((m) => !takenTodayIds.contains(m.id)).toList();
+      await MedicationReminderService.scheduleForMedications(untakenMeds);
+      
+      // Annuler les notifications pour ceux déjà pris (au cas où ils auraient été programmés avant)
+      for (var medId in takenTodayIds) {
+        final med = allMeds.firstWhere((m) => m.id == medId, orElse: () => allMeds.first);
+        await MedicationReminderService.cancelMedicationById(medId, med.times.length);
+      }
+
+      debugPrint("Scheduled ${untakenMeds.length} untaken medications from Home");
     } catch (e) {
       debugPrint("Error scheduling medications from Home: $e");
     }

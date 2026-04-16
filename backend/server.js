@@ -11,6 +11,7 @@ const caregiverRoutes = require("./routes/caregiverRoutes");
 const alertRoutes = require("./routes/alertRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const medicationRoutes = require("./routes/medicationRoutes");
+const contactRoutes = require("./routes/contactRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const Caregiver = require("./models/caregiver");
 const Elder = require("./models/elder");
@@ -30,6 +31,7 @@ app.use("/elder", elderRoutes);
 app.use("/caregiver", caregiverRoutes);
 app.use("/alerts", alertRoutes);
 app.use("/medications", medicationRoutes);
+app.use("/contacts", contactRoutes);
 app.use("/tasks", taskRoutes);
 app.use("/ai", aiRoutes);
 

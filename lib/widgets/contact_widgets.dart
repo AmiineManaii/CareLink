@@ -45,13 +45,21 @@ class FavoriteContactCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.blue[100],
                   shape: BoxShape.circle,
+                  image: (contact.photo.startsWith('http'))
+                      ? DecorationImage(
+                          image: NetworkImage(contact.photo),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                child: Center(
-                  child: Text(
-                    contact.photo,
-                    style: const TextStyle(fontSize: 32),
-                  ),
-                ),
+                child: (!contact.photo.startsWith('http'))
+                    ? Center(
+                        child: Text(
+                          contact.photo,
+                          style: const TextStyle(fontSize: 32),
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -171,10 +179,18 @@ class OtherContactCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.grey[100],
               shape: BoxShape.circle,
+              image: (contact.photo.startsWith('http'))
+                  ? DecorationImage(
+                      image: NetworkImage(contact.photo),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
-            child: Center(
-              child: Text(contact.photo, style: const TextStyle(fontSize: 24)),
-            ),
+            child: (!contact.photo.startsWith('http'))
+                ? Center(
+                    child: Text(contact.photo, style: const TextStyle(fontSize: 24)),
+                  )
+                : null,
           ),
           const SizedBox(width: 16),
           Expanded(

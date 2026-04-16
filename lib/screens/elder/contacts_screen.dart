@@ -21,6 +21,41 @@ class _ContactsScreenState extends State<ContactsScreen> {
   Map<String, dynamic>? _caregiver;
   bool _loadingCaregiver = false;
   Timer? _relativeTimer;
+  List<dynamic> _dynamicContacts = [];
+  bool _loadingContacts = true;
+  final ApiService _apiService = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCaregiverInfo();
+    _fetchDynamicContacts();
+    _relativeTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted &&
+          _caregiver != null &&
+          _caregiver!['lastActiveAt'] != null) {
+        setState(() {});
+      }
+    });
+  }
+
+  Future<void> _fetchDynamicContacts() async {
+    final elderId = InMemoryFaceStorage().getElderId();
+    if (elderId == null) return;
+
+    try {
+      final data = await _apiService.getContacts(elderId);
+      if (mounted) {
+        setState(() {
+          _dynamicContacts = data;
+          _loadingContacts = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching dynamic contacts: $e');
+      if (mounted) setState(() => _loadingContacts = false);
+    }
+  }
 
   String _formatLastSeen(String iso) {
     try {
@@ -35,19 +70,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
     } catch (_) {
       return 'Hors ligne';
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchCaregiverInfo();
-    _relativeTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted &&
-          _caregiver != null &&
-          _caregiver!['lastActiveAt'] != null) {
-        setState(() {});
-      }
-    });
   }
 
   Future<void> _fetchCaregiverInfo() async {
@@ -87,57 +109,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
     super.dispose();
   }
 
-  List<Contact> contacts = [
-    Contact(
-      id: 1,
-      name: 'Marie Dupont',
-      relation: 'Fille',
-      phone: '06 12 34 56 78',
-      photo: '👩',
-      favorite: true,
-    ),
-    Contact(
-      id: 2,
-      name: 'Dr. Martin',
-      relation: 'Médecin',
-      phone: '01 23 45 67 89',
-      photo: '👨‍⚕️',
-      favorite: true,
-    ),
-    Contact(
-      id: 3,
-      name: 'Jean Dupont',
-      relation: 'Fils',
-      phone: '06 98 76 54 32',
-      photo: '👨',
-      favorite: true,
-    ),
-    Contact(
-      id: 4,
-      name: 'Sophie Bernard',
-      relation: 'Amie',
-      phone: '06 11 22 33 44',
-      photo: '👩',
-      favorite: false,
-    ),
-    Contact(
-      id: 5,
-      name: 'Pharmacie Centrale',
-      relation: 'Pharmacie',
-      phone: '01 44 55 66 77',
-      photo: '💊',
-      favorite: true,
-    ),
-    Contact(
-      id: 6,
-      name: 'Pierre Moreau',
-      relation: 'Voisin',
-      phone: '06 55 44 33 22',
-      photo: '👴',
-      favorite: false,
-    ),
-  ];
-
+  List<Contact> get favorites => [];
+  List<Contact> get otherContacts => [];
+  List<Contact> contacts = [];
   bool _recordingVoice = false;
 
   void _handleCall(Contact contact) {
@@ -226,10 +200,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 
-  List<Contact> get favorites => contacts.where((c) => c.favorite).toList();
-  List<Contact> get otherContacts =>
-      contacts.where((c) => !c.favorite).toList();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -300,85 +270,77 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
             // Voice Command
             InfoCard(
-              icon: FontAwesomeIcons.volumeHigh,
-              title: 'Commande vocale',
-              subtitle: 'Dites "Appeler [nom]"',
-              gradientColors: [Colors.blue[500]!, Colors.blue[600]!],
-              onTap: _handleVoiceCommand,
-            ),
+      icon: FontAwesomeIcons.volumeHigh,
+      title: 'Commande vocale',
+      subtitle: 'Dites "Appeler [nom]"',
+      gradientColors: [Colors.blue[500]!, Colors.blue[600]!],
+      onTap: _handleVoiceCommand,
+    ),
 
-            const SizedBox(height: 24),
+    const SizedBox(height: 24),
 
-            // Emergency Contacts
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      FontAwesomeIcons.heart,
-                      color: Colors.red[500],
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Contacts favoris',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                  ],
+    if (_loadingContacts)
+      const Center(child: CircularProgressIndicator())
+    else if (_dynamicContacts.isEmpty)
+      const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Text(
+            'Aucun contact enregistré par votre aidant.',
+            style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+          ),
+        ),
+      )
+    else
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                FontAwesomeIcons.addressBook,
+                color: Colors.blue[500],
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Mes Contacts',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
                 ),
-                const SizedBox(height: 16),
-                ...favorites.map(
-                  (contact) => FavoriteContactCard(
-                    contact: contact,
-                    recordingVoice: _recordingVoice,
-                    onCall: () => _handleCall(contact),
-                    onVideoCall: () => _handleVideoCall(contact),
-                    onVoiceMessage: () => _handleVoiceMessage(contact),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._dynamicContacts.map(
+            (contactData) {
+              final String? photoUrl = contactData['photoUrl'];
+              final contact = Contact(
+                id: contactData['_id'].hashCode,
+                name: contactData['name'],
+                relation: contactData['relation'],
+                phone: contactData['phone'],
+                photo: (photoUrl != null && photoUrl.isNotEmpty)
+                    ? '${_apiService.baseUrl}$photoUrl'
+                    : '👤',
+                favorite: true,
+              );
+              return FavoriteContactCard(
+                contact: contact,
+                recordingVoice: _recordingVoice,
+                onCall: () => _handleCall(contact),
+                onVideoCall: () => _handleVideoCall(contact),
+                onVoiceMessage: () => _handleVoiceMessage(contact),
+              );
+            },
+          ),
+        ],
+      ),
 
-            const SizedBox(height: 24),
+    const SizedBox(height: 24),
 
-            // Other Contacts
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      FontAwesomeIcons.user,
-                      color: Colors.grey[500],
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Autres contacts',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                ...otherContacts.map(
-                  (contact) => OtherContactCard(
-                    contact: contact,
-                    onCall: () => _handleCall(contact),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // Emergency Numbers
+    // Emergency Numbers
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
