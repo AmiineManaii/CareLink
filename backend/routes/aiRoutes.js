@@ -11,24 +11,29 @@ router.post("/analyze-image", async (req, res) => {
 
   try {
     const response = await axios.post("http://localhost:11434/api/chat", {
-      model: "qwen3-vl:2b-instruct-q4_K_M",
-      messages: [
-        {
-          role: "user",
-          content: `
-            You must follow these rules strictly:
-            - Output only one single word
-            - No sentences
-            - No explanations
-            - No punctuation
+  model: "qwen3-vl:2b-instruct-q4_K_M",
+  messages: [
+    {
+      role: "user",
+      content: `
+        Identify the main visible object in this image.
 
-            What is the main object in this image?
-          `,
-          images: [image],
-        },
-      ],
-      stream: false,
-    });
+        Rules:
+        - Be as specific as possible (include type, state, or context)
+        - Prefer compound nouns (e.g., "fruit juice", "water bottle", "coffee cup")
+        - Use 1 to 3 words maximum
+        - No sentence
+        - No explanation
+        - No punctuation
+        - Avoid overly generic words like "object", "thing", "fruit"
+
+        Answer:
+      `,
+      images: [image],
+    },
+  ],
+  stream: false,
+});
 
     const aiResponse = response.data.message.content.trim();
     res.json({ result: aiResponse });

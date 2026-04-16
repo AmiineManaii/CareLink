@@ -38,12 +38,12 @@ android {
 
 dependencies {
     // AndroidX
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.core:core-ktx:1.10.1")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.0")
 
     // Désuagrage pour Java 17
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 }
 
 flutter {

@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../widgets/quick_action_card.dart';
 import '../../features/face_auth/face_storage.dart';
 import '../../services/api_service.dart';
+import 'medications/caregiver_medication_history_screen.dart';
 import 'medications/caregiver_medications_screen.dart';
 import 'caregiver_alerts_screen.dart';
 import 'caregiver_tasks_screen.dart';
@@ -447,6 +448,34 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
       children: [
         CaregiverQuickActionsSection(elderId: elderId, elderName: elderName),
         const SizedBox(height: 24),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: QuickActionCard(
+                title: 'Historique',
+                subtitle: 'Prises médocs',
+                icon: Icons.history,
+                gradientColors: [Colors.blue.shade400, Colors.blue.shade600],
+                onTap: () {
+                  final caregiverId = InMemoryFaceStorage().getCaregiverId();
+                  if (caregiverId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CaregiverMedicationHistoryScreen(
+                          caregiverId: caregiverId,
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Spacer(),
+          ],
+        ),
       ],
     );
   }

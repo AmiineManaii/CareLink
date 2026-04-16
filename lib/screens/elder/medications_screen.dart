@@ -6,6 +6,12 @@ import '../../widgets/custom_app_bar.dart';
 import '../../models/medication.dart';
 import 'package:intl/intl.dart';
 import 'package:care_link/services/medication_reminder_service.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+import 'package:record/record.dart';
 
 class MedicationsScreen extends StatefulWidget {
   const MedicationsScreen({super.key});
@@ -20,10 +26,111 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
   String? _error;
   final Set<String> _takenMedications = {};
 
+  // Speech to Text & Record
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  final AudioRecorder _recorder = AudioRecorder();
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _isListening = false;
+  bool _isRecording = false;
+  String? _audioPath;
+
   @override
   void initState() {
     super.initState();
     _fetchMedications();
+    _initSpeech();
+  }
+
+  @override
+  void dispose() {
+    _recorder.dispose();
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  Future<void> _initSpeech() async {
+    await _speech.initialize();
+    await _flutterTts.setLanguage("fr-FR");
+  }
+
+  Future<void> _startRecording() async {
+    try {
+      if (await _recorder.hasPermission()) {
+        final dir = await getTemporaryDirectory();
+        final path =
+            '${dir.path}/med_confirmation_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+        await _recorder.start(RecordConfig(), path: path);
+        setState(() {
+          _isRecording = true;
+          _audioPath = path;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error starting recording: $e");
+    }
+  }
+
+  Future<String?> _stopRecording() async {
+    try {
+      final path = await _recorder.stop();
+      setState(() {
+        _isRecording = false;
+      });
+      return path;
+    } catch (e) {
+      debugPrint("Error stopping recording: $e");
+      return null;
+    }
+  }
+
+  void _showConfirmationDialog(Medication med) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => MedicationConfirmationDialog(
+        medicationName: med.name,
+        onConfirm: (note, audioPath) => _confirmTake(med, note, audioPath),
+      ),
+    );
+  }
+
+  Future<void> _confirmTake(
+    Medication med,
+    String note,
+    String? audioPath,
+  ) async {
+    setState(() => _isLoading = true);
+    try {
+      final elderId = InMemoryFaceStorage().getElderId();
+      if (elderId == null) return;
+
+      await ApiService().confirmMedicationTake(
+        medicationId: med.id,
+        elderId: elderId,
+        note: note,
+        audioFile: audioPath != null ? File(audioPath) : null,
+      );
+
+      // Transformation auto du texte en parole (TTS) si une note est présente
+      if (note.trim().isNotEmpty) {
+        await _flutterTts.speak(note);
+      }
+
+      setState(() {
+        _takenMedications.add(med.id);
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Prise confirmée !")),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur : $e")),
+      );
+    }
   }
 
   Future<void> _fetchMedications() async {
@@ -343,7 +450,11 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => _toggleMedication(med.id),
+                onTap: () {
+                  if (!isTaken) {
+                    _showConfirmationDialog(med);
+                  }
+                },
                 child: Container(
                   width: 70,
                   height: 70,
@@ -434,6 +545,135 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class MedicationConfirmationDialog extends StatefulWidget {
+  final String medicationName;
+  final Function(String note, String? audioPath) onConfirm;
+
+  const MedicationConfirmationDialog({
+    super.key,
+    required this.medicationName,
+    required this.onConfirm,
+  });
+
+  @override
+  State<MedicationConfirmationDialog> createState() =>
+      _MedicationConfirmationDialogState();
+}
+
+class _MedicationConfirmationDialogState
+    extends State<MedicationConfirmationDialog> {
+  final TextEditingController _textController = TextEditingController();
+  final AudioRecorder _recorder = AudioRecorder();
+  bool _isRecording = false;
+  String? _audioPath;
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _recorder.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      title: Text(
+        "Confirmer : ${widget.medicationName}",
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Voulez-vous ajouter un message écrit ou vocal ?",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _textController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: "Écrivez votre message ici...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.grey[100],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Column(
+              children: [
+                IconButton(
+                  iconSize: 56,
+                  icon: Icon(
+                    _isRecording ? Icons.stop_circle : Icons.mic,
+                    color: _isRecording ? Colors.red : Colors.purple[700],
+                  ),
+                  onPressed: () async {
+                    if (!_isRecording) {
+                      if (await _recorder.hasPermission()) {
+                        final dir = await getTemporaryDirectory();
+                        final path =
+                            '${dir.path}/med_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+                        await _recorder.start(
+                          const RecordConfig(),
+                          path: path,
+                        );
+                        setState(() {
+                          _isRecording = true;
+                          _audioPath = path;
+                        });
+                      }
+                    } else {
+                      await _recorder.stop();
+                      setState(() => _isRecording = false);
+                    }
+                  },
+                ),
+                Text(
+                  _isRecording ? "Arrêter" : "Enregistrer une voix",
+                  style: TextStyle(
+                    color: _isRecording ? Colors.red : Colors.grey[700],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("ANNULER"),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green[600],
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          onPressed: () {
+            final note = _textController.text;
+            Navigator.pop(context);
+            widget.onConfirm(note, _audioPath);
+          },
+          child: const Text("CONFIRMER"),
+        ),
+      ],
     );
   }
 }

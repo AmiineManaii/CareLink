@@ -18,7 +18,8 @@ import '../../utils/label_translations.dart';
 import '../../widgets/accessibility/detection_result_dialog.dart';
 import '../../widgets/accessibility/ocr_result_dialog.dart';
 import '../../widgets/accessibility/tts_section.dart';
-import '../../services/api_service.dart';
+import 'package:care_link/services/api_service.dart';
+import 'package:care_link/features/face_auth/face_storage.dart';
 import 'dart:convert';
 
 class AccessibilityScreen extends StatefulWidget {

@@ -1,5 +1,7 @@
 import 'package:care_link/models/medication.dart';
 import 'package:care_link/screens/caregiver/medications/add_medication_screen.dart';
+import 'package:care_link/screens/caregiver/medications/caregiver_medication_history_screen.dart';
+import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:care_link/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
@@ -112,6 +114,25 @@ class _CaregiverMedicationsScreenState
       appBar: CustomAppBar(
         title: 'Médicaments de ${widget.elderName}',
         showBackButton: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              final caregiverId = InMemoryFaceStorage().getCaregiverId();
+              if (caregiverId != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CaregiverMedicationHistoryScreen(
+                      caregiverId: caregiverId,
+                    ),
+                  ),
+                );
+              }
+            },
+            tooltip: 'Historique des prises',
+          ),
+        ],
       ),
       backgroundColor: Colors.grey[50],
       floatingActionButton: FloatingActionButton.large(

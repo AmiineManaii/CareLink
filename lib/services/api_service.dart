@@ -295,6 +295,48 @@ class ApiService {
     }
   }
 
+  Future<void> confirmMedicationTake({
+    required String medicationId,
+    required String elderId,
+    String? note,
+    File? audioFile,
+    String status = 'taken',
+  }) async {
+    final uri = Uri.parse('$baseUrl/medications/confirm-take');
+    final request = http.MultipartRequest('POST', uri);
+
+    request.fields['medicationId'] = medicationId;
+    request.fields['elderId'] = elderId;
+    request.fields['status'] = status;
+    if (note != null) request.fields['note'] = note;
+
+    if (audioFile != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'audio',
+        audioFile.path,
+      ));
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to confirm medication: ${response.body}');
+    }
+  }
+
+  Future<List<dynamic>> getMedicationHistory(String caregiverId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/medications/history/$caregiverId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to load medication history');
+    }
+  }
+
   // --- TASKS ---
   Future<Map<String, dynamic>> addTask({
     required String elderId,

@@ -3,18 +3,71 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const Medication = require('../models/medication');
+const MedicationLog = require('../models/medicationLog');
+const Caregiver = require('../models/caregiver');
 
-// Configure Multer for file uploads
+// Configure Multer for file uploads (photos et audio)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    const uploadPath = path.join(__dirname, '..', 'uploads');
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+    const ext = path.extname(file.originalname) || (file.fieldname === 'audio' ? '.m4a' : '.jpg');
+    cb(null, Date.now() + '-' + file.fieldname + ext);
   }
 });
 
 const upload = multer({ storage: storage });
+
+// Route pour confirmer la prise d'un médicament (avec audio/note optionnel)
+router.post('/confirm-take', upload.single('audio'), async (req, res) => {
+  try {
+    const { medicationId, elderId, note, status } = req.body;
+    
+    if (!medicationId || !elderId) {
+      return res.status(400).json({ error: 'medicationId et elderId requis' });
+    }
+
+    // Trouver le caregiver lié pour l'historique
+    const caregiver = await Caregiver.findOne({ linkedElderId: elderId });
+    if (!caregiver) {
+      return res.status(404).json({ error: 'Caregiver non trouvé pour ce senior' });
+    }
+
+    const audioUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    const log = new MedicationLog({
+      medicationId,
+      elderId,
+      caregiverId: caregiver._id,
+      status: status || 'taken',
+      note,
+      audioUrl,
+      takenAt: new Date()
+    });
+
+    await log.save();
+    res.status(201).json(log);
+  } catch (error) {
+    console.error('Erreur confirmation médicament:', error);
+    res.status(500).json({ error: 'Erreur serveur interne' });
+  }
+});
+
+// Route pour récupérer l'historique des prises pour un aidant
+router.get('/history/:caregiverId', async (req, res) => {
+  try {
+    const { caregiverId } = req.params;
+    const history = await MedicationLog.find({ caregiverId })
+      .populate('medicationId', 'name dosage')
+      .sort({ takenAt: -1 });
+    res.json(history);
+  } catch (error) {
+    console.error('Erreur historique médicaments:', error);
+    res.status(500).json({ error: 'Erreur serveur interne' });
+  }
+});
 
 // Add medication with optional photo
 router.post('/', upload.single('photo'), async (req, res) => {
