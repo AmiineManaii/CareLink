@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 const Caregiver = require("../models/caregiver");
 const Elder = require("../models/elder");
 
@@ -91,6 +92,39 @@ router.post("/:id/heartbeat", async (req, res) => {
     });
   } catch (e) {
     console.error(e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid caregiver ID format" });
+    }
+    const cg = await Caregiver.findById(req.params.id).select("-passwordHash");
+    if (!cg) return res.status(404).json({ error: "Caregiver not found" });
+    res.json(cg);
+  } catch (e) {
+    console.error("Error in GET /caregiver/:id:", e);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+router.put("/:id", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid caregiver ID format" });
+    }
+    const { firstName, lastName, phone, gender, email } = req.body;
+    const cg = await Caregiver.findByIdAndUpdate(
+      req.params.id,
+      { firstName, lastName, phone, gender, email },
+      { new: true }
+    ).select("-passwordHash");
+    if (!cg) return res.status(404).json({ error: "Caregiver not found" });
+    res.json(cg);
+  } catch (e) {
+    console.error("Error in PUT /caregiver/:id:", e);
     res.status(500).json({ error: "server_error" });
   }
 });

@@ -38,15 +38,28 @@ class ApiService {
   Future<Map<String, dynamic>> elderUpdateProfile({
     required String elderId,
     required Map<String, dynamic> profile,
+    File? image,
   }) async {
-    final resp = await http
-        .post(
-          Uri.parse('$baseUrl/elder/update-profile'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'elderId': elderId, 'profile': profile}),
-        )
-        .timeout(const Duration(seconds: 10));
-    return jsonDecode(resp.body) as Map<String, dynamic>;
+    if (image == null) {
+      final resp = await http
+          .post(
+            Uri.parse('$baseUrl/elder/update-profile'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'elderId': elderId, 'profile': profile}),
+          )
+          .timeout(const Duration(seconds: 10));
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      final uri = Uri.parse('$baseUrl/elder/update-profile-with-image');
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['elderId'] = elderId;
+      request.fields['profile'] = jsonEncode(profile);
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
   }
 
   Future<Map<String, dynamic>> getElderCaregiver(String elderId) async {
@@ -158,6 +171,34 @@ class ApiService {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to send caregiver heartbeat');
+    }
+  }
+
+  Future<Map<String, dynamic>> getCaregiverProfile(String caregiverId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/caregiver/$caregiverId'),
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception(
+          'Failed to load caregiver profile: Status ${resp.statusCode}, Body: ${resp.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCaregiverProfile(
+    String caregiverId,
+    Map<String, dynamic> profileData,
+  ) async {
+    final resp = await http.put(
+      Uri.parse('$baseUrl/caregiver/$caregiverId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(profileData),
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to update caregiver profile');
     }
   }
 

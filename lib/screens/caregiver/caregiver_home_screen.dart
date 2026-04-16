@@ -8,6 +8,9 @@ import 'medications/caregiver_medications_screen.dart';
 import 'caregiver_contacts_screen.dart';
 import 'caregiver_alerts_screen.dart';
 import 'caregiver_tasks_screen.dart';
+import 'elder_profile_edit_screen.dart';
+import 'package:care_link/main.dart';
+import 'package:flutter/services.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:async';
 
@@ -210,13 +213,16 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
               const SizedBox(height: 16),
 
               // Name
-              Text(
-                '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
 
@@ -359,14 +365,37 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
           ),
           const Spacer(),
           Flexible(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.right,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.right,
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _logout() async {
+    await InMemoryFaceStorage().setLoggedIn(false);
+    await InMemoryFaceStorage().setRole('');
+
+    try {
+      const channel = MethodChannel('fall_channel');
+      await channel.invokeMethod('startService');
+    } catch (e) {
+      debugPrint('Error pinging service: $e');
+    }
+
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const StartupGate()),
+      (route) => false,
     );
   }
 
@@ -384,6 +413,12 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
               pinned: true,
               backgroundColor: Colors.white,
               elevation: 0,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.black),
+                  onPressed: _logout,
+                ),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 title: _buildElderStatusBar(),
                 centerTitle: false,
@@ -415,9 +450,8 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
                   else if (_elderId != null && _elderProfile != null)
                     CaregiverHomeConnectedContent(
                       elderId: _elderId,
-                      elderName:
-                          '${_elderProfile!['firstName'] ?? ''} ${_elderProfile!['lastName'] ?? ''}'
-                              .trim(),
+                      elderProfile: _elderProfile!,
+                      onProfileUpdated: _loadElderInfo,
                     )
                   else
                     const CaregiverNoElderCard(),
@@ -434,20 +468,29 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
 /// Contenu principal de l’écran d’accueil aidant quand un senior est lié.
 class CaregiverHomeConnectedContent extends StatelessWidget {
   final String? elderId;
-  final String? elderName;
+  final Map<String, dynamic> elderProfile;
+  final VoidCallback onProfileUpdated;
 
   const CaregiverHomeConnectedContent({
     super.key,
     this.elderId,
-    this.elderName,
+    required this.elderProfile,
+    required this.onProfileUpdated,
   });
 
   @override
   Widget build(BuildContext context) {
+    final elderName =
+        '${elderProfile['firstName'] ?? ''} ${elderProfile['lastName'] ?? ''}'
+            .trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CaregiverQuickActionsSection(elderId: elderId, elderName: elderName),
+        CaregiverQuickActionsSection(
+          elderId: elderId,
+          elderProfile: elderProfile,
+          onProfileUpdated: onProfileUpdated,
+        ),
         const SizedBox(height: 24),
         const SizedBox(height: 12),
         Row(
@@ -487,7 +530,7 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => CaregiverContactsScreen(
                           elderId: elderId!,
-                          elderName: elderName ?? 'Senior',
+                          elderName: elderName,
                         ),
                       ),
                     );
@@ -505,26 +548,50 @@ class CaregiverHomeConnectedContent extends StatelessWidget {
 /// Grille des actions rapides accessibles depuis l’écran d’accueil aidant.
 class CaregiverQuickActionsSection extends StatelessWidget {
   final String? elderId;
-  final String? elderName;
+  final Map<String, dynamic> elderProfile;
+  final VoidCallback onProfileUpdated;
 
-  const CaregiverQuickActionsSection({super.key, this.elderId, this.elderName});
+  const CaregiverQuickActionsSection({
+    super.key,
+    this.elderId,
+    required this.elderProfile,
+    required this.onProfileUpdated,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final elderName =
+        '${elderProfile['firstName'] ?? ''} ${elderProfile['lastName'] ?? ''}'
+            .trim();
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: QuickActionCard(
-                title: 'Localisation',
-                subtitle: 'Position GPS',
-                icon: FontAwesomeIcons.locationDot,
+                title: 'Profil Senior',
+                subtitle: 'Gérer les infos',
+                icon: FontAwesomeIcons.userPen,
                 gradientColors: [
                   Colors.orange.shade400,
                   Colors.orange.shade600,
                 ],
-                onTap: () {},
+                onTap: () async {
+                  if (elderId != null) {
+                    final updated = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ElderProfileEditScreen(
+                          elderId: elderId!,
+                          initialProfile: elderProfile,
+                        ),
+                      ),
+                    );
+                    if (updated == true) {
+                      onProfileUpdated();
+                    }
+                  }
+                },
               ),
             ),
             const SizedBox(width: 12),
@@ -544,7 +611,7 @@ class CaregiverQuickActionsSection extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => CaregiverMedicationsScreen(
                           elderId: elderId!,
-                          elderName: elderName ?? 'Senior',
+                          elderName: elderName,
                         ),
                       ),
                     );
@@ -587,7 +654,7 @@ class CaregiverQuickActionsSection extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => CaregiverTasksScreen(
                           elderId: elderId!,
-                          elderName: elderName ?? 'Senior',
+                          elderName: elderName,
                         ),
                       ),
                     );
@@ -631,19 +698,25 @@ class CaregiverNoElderCard extends StatelessWidget {
             color: Colors.grey.shade400,
           ),
           const SizedBox(height: 16),
-          Text(
-            'Aucun senior lié',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'Aucun senior lié',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Veuillez vous reconnecter ou contacter le support pour lier un compte senior.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'Veuillez vous reconnecter ou contacter le support pour lier un compte senior.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
@@ -712,18 +785,24 @@ class ElderStatusIndicator extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
             ),
             if (subtitle != null)
-              Text(
-                subtitle!,
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  subtitle!,
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
+                ),
               ),
           ],
         ),

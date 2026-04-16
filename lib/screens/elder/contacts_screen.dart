@@ -268,16 +268,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 ),
               ),
 
-            // Voice Command
-            InfoCard(
-      icon: FontAwesomeIcons.volumeHigh,
-      title: 'Commande vocale',
-      subtitle: 'Dites "Appeler [nom]"',
-      gradientColors: [Colors.blue[500]!, Colors.blue[600]!],
-      onTap: _handleVoiceCommand,
-    ),
+            
 
-    const SizedBox(height: 24),
 
     if (_loadingContacts)
       const Center(child: CircularProgressIndicator())
@@ -367,15 +359,15 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                     children: [
-                      const EmergencyNumberCard(emoji: '🚑', text: 'SAMU 15'),
-                      const EmergencyNumberCard(emoji: '🚓', text: 'Police 17'),
+                      const EmergencyNumberCard(emoji: '🚑', text: 'SAMU 190'),
+                      const EmergencyNumberCard(emoji: '🚓', text: 'Police 197'),
                       const EmergencyNumberCard(
                         emoji: '🚒',
-                        text: 'Pompiers 18',
+                        text: 'Pompiers 198',
                       ),
                       const EmergencyNumberCard(
                         emoji: '🆘',
-                        text: 'Urgences 112',
+                        text: 'Urgences 193',
                       ),
                     ],
                   ),

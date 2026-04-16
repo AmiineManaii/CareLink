@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:care_link/features/face_auth/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
+import 'package:care_link/widgets/sos_mini_map.dart';
 import 'package:intl/intl.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -63,8 +64,13 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       final date = DateTime.parse(alert['createdAt']).toLocal();
                       final dateStr = DateFormat('dd/MM/yyyy').format(date);
                       final timeStr = DateFormat('HH:mm').format(date);
-                      final lat = alert['latitude'] ?? 'N/A';
-                      final lon = alert['longitude'] ?? 'N/A';
+                      final latStr = alert['latitude'] ?? 'N/A';
+                      final lonStr = alert['longitude'] ?? 'N/A';
+
+                      double? lat = double.tryParse(latStr.toString());
+                      double? lon = double.tryParse(lonStr.toString());
+
+                      bool hasValidLocation = lat != null && lon != null && lat != 0 && lon != 0;
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 16),
@@ -129,11 +135,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Latitude: $lat',
+                                          'Latitude: $latStr',
                                           style: const TextStyle(fontSize: 16),
                                         ),
                                         Text(
-                                          'Longitude: $lon',
+                                          'Longitude: $lonStr',
                                           style: const TextStyle(fontSize: 16),
                                         ),
                                       ],
@@ -141,6 +147,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                   ),
                                 ],
                               ),
+                              if (hasValidLocation) ...[
+                                const SizedBox(height: 16),
+                                SosMiniMap(latitude: lat, longitude: lon),
+                              ],
                             ],
                           ),
                         ),
