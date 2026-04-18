@@ -10,12 +10,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/feature_card.dart';
 import '../../services/ml_service.dart';
 import '../../utils/label_translations.dart';
 import '../../widgets/accessibility/detection_result_dialog.dart';
+import '../../widgets/accessibility/detection_history_dialog.dart';
 import '../../widgets/accessibility/ocr_result_dialog.dart';
 import '../../widgets/accessibility/tts_section.dart';
 import 'package:care_link/services/api_service.dart';
@@ -35,8 +37,12 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _textController = TextEditingController();
+  IO.Socket? _socket;
+  String? _lastImagePath;
+  List<Map<String, dynamic>> _history = [];
 
-  bool _isScanning = false;
+  bool _isObjectScanning = false;
+  bool _isOcrScanning = false;
   bool _isListening = false;
   bool _highContrast = false;
   bool _visualAlertEnabled = false;
@@ -47,7 +53,9 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+    _loadHistory();
     _initTts();
+    _initSocket();
     _mlService.initialize().then((_) => setState(() {}));
   }
 
@@ -57,10 +65,127 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
     _flutterTts.stop();
     _speech.stop();
     _mlService.dispose();
+    _socket?.dispose();
     super.dispose();
   }
 
   // ── Initialisation ──────────────────────────────────────────
+
+  Future<void> _initSocket() async {
+    final elderId = InMemoryFaceStorage().getElderId();
+    if (elderId == null) return;
+    final baseUrl = ApiService().baseUrl;
+    try {
+      _socket = IO.io(
+        baseUrl,
+        IO.OptionBuilder().setTransports(['websocket']).setQuery({
+          'elderId': elderId,
+        }).build(),
+      );
+
+      _socket!.onConnect((_) {
+        debugPrint('Accessibility connected to socket');
+        _socket!.emit('registerElder', {'elderId': elderId});
+      });
+
+      _socket!.on('objectDetectionResult', (data) {
+        final String aiResult = data['result'] ?? "";
+        final String imageBase64 = data['image'] ?? "";
+
+        if (aiResult.isNotEmpty && mounted) {
+          // ✅ Ollama result is used directly as requested by the user
+          final String resultText = "C'est $aiResult.";
+
+          _saveToHistory(aiResult.toLowerCase(), aiResult, imageBase64);
+          _showResultToast(resultText, aiResult, imageBase64);
+        }
+      });
+
+      _socket!.on('objectDetectionError', (data) {
+        if (mounted) {
+          _showSnackBar("Erreur d'analyse IA : ${data['error']}");
+        }
+      });
+
+      _socket!.connect();
+    } catch (e) {
+      debugPrint('Error initializing socket: $e');
+    }
+  }
+
+  void _showResultToast(
+    String resultText,
+    String aiResult,
+    String imageBase64,
+  ) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Résultat prêt : $resultText",
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.teal,
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          label: "VOIR",
+          textColor: Colors.white,
+          onPressed: () {
+            _showDetectionResult(aiResult, imageBase64);
+          },
+        ),
+      ),
+    );
+    _flutterTts.speak(resultText);
+  }
+
+  void _showDetectionResult(String aiResult, String imageBase64) async {
+    final String fr = LabelTranslations.translate(aiResult.toLowerCase());
+    final String resultText = "C'est $fr.";
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DetectionResultDialog(
+        imagePath: _lastImagePath ?? "",
+        imageBase64: imageBase64,
+        mlObjects: const [],
+        results: [
+          {
+            "label": aiResult.toLowerCase(),
+            "labelFr": fr,
+            "confidence": 1.0,
+            "source": "ollama",
+          },
+        ],
+        resultText: resultText,
+        onReplay: () => _flutterTts.speak(resultText),
+        onDismiss: () {
+          _flutterTts.stop();
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _showHistory() {
+    showDialog(
+      context: context,
+      builder: (_) => DetectionHistoryDialog(
+        history: _history,
+        onSpeak: (text) => _flutterTts.speak(text),
+      ),
+    );
+  }
 
   Future<void> _initTts() async {
     await _flutterTts.setLanguage("fr-FR");
@@ -74,6 +199,37 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       _fontSize = prefs.getDouble('fontSize') ?? 20.0;
       _ttsRate = prefs.getDouble('ttsRate') ?? 0.5;
     });
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? historyData = prefs.getString('detection_history');
+    if (historyData != null) {
+      setState(() {
+        _history = List<Map<String, dynamic>>.from(jsonDecode(historyData));
+      });
+    }
+  }
+
+  Future<void> _saveToHistory(
+    String label,
+    String labelFr,
+    String imageBase64,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final newItem = {
+      'label': label,
+      'labelFr': labelFr,
+      'image': imageBase64,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    setState(() {
+      _history.insert(0, newItem);
+      if (_history.length > 20) _history.removeLast(); // Garder les 20 derniers
+    });
+
+    await prefs.setString('detection_history', jsonEncode(_history));
   }
 
   Future<void> _saveSetting(String key, dynamic value) async {
@@ -104,51 +260,36 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       );
       if (file == null) return;
 
-      setState(() => _isScanning = true);
+      setState(() {
+        _isObjectScanning = true;
+        _lastImagePath = file.path;
+      });
 
-      // 1. Tenter l'IA locale via le backend (Ollama)
+      final elderId = InMemoryFaceStorage().getElderId();
+      if (elderId == null) {
+        _showSnackBar('Erreur: ID utilisateur non trouvé');
+        setState(() => _isObjectScanning = false);
+        return;
+      }
+
+      // 1. Tenter l'IA locale via le backend (Ollama) - Version Asynchrone
       try {
         final bytes = await file.readAsBytes();
         final String base64Image = base64Encode(bytes);
-        final response = await ApiService().analyzeImage(base64Image);
-        final String aiResult = response['result'] ?? "";
 
-        if (aiResult.isNotEmpty) {
-          final String fr = LabelTranslations.translate(aiResult.toLowerCase());
-          final String resultText = "C'est $fr.";
+        await ApiService().analyzeImage(base64Image, elderId);
 
-          setState(() => _isScanning = false);
-          _flutterTts.speak(resultText);
-
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => DetectionResultDialog(
-              imagePath: file.path,
-              mlObjects: const [],
-              results: [
-                {
-                  "label": aiResult.toLowerCase(),
-                  "labelFr": fr,
-                  "confidence": 1.0,
-                  "source": "ollama",
-                },
-              ],
-              resultText: resultText,
-              onReplay: () => _flutterTts.speak(resultText),
-              onDismiss: () {
-                _flutterTts.stop();
-                Navigator.pop(context);
-              },
-            ),
-          );
-          return; // Succès avec l'IA locale
-        }
+        // ✅ Reset loading state immediately after request is sent
+        setState(() => _isObjectScanning = false);
+        _showSnackBar(
+          'Analyse lancée... Vous recevrez une notification quand le résultat sera prêt.',
+        );
+        return; // L'analyse continue en arrière-plan
       } catch (e) {
         debugPrint('⚠️ Erreur IA locale, repli sur TFLite: $e');
       }
 
-      // 2. Repli sur l'ancienne méthode (TFLite) si l'IA locale échoue ou est vide
+      // 2. Repli sur l'ancienne méthode (TFLite) si l'IA locale échoue
       final mlObjects = await _mlService.detectObjects(file.path);
       final bytes = await File(file.path).readAsBytes();
       final fullImg = img.decodeImage(bytes);
@@ -200,7 +341,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         }
       }
 
-      setState(() => _isScanning = false);
+      setState(() => _isObjectScanning = false);
 
       final List<String> detectedLabels = [];
       final List<Map<String, dynamic>> withFr = [];
@@ -235,7 +376,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         ),
       );
     } catch (e) {
-      setState(() => _isScanning = false);
+      setState(() => _isObjectScanning = false);
       _showSnackBar('Erreur : $e');
     }
   }
@@ -245,9 +386,9 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       final XFile? image = await _picker.pickImage(source: ImageSource.camera);
       if (image == null) return;
 
-      setState(() => _isScanning = true);
+      setState(() => _isOcrScanning = true);
       String text = await _mlService.recognizeText(image.path);
-      setState(() => _isScanning = false);
+      setState(() => _isOcrScanning = false);
 
       if (text.isEmpty) {
         text = "Aucun texte détecté. Réessayez avec une image plus nette.";
@@ -271,7 +412,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         ),
       );
     } catch (e) {
-      setState(() => _isScanning = false);
+      setState(() => _isOcrScanning = false);
       _showSnackBar('Erreur : $e');
     }
   }
@@ -339,15 +480,40 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
           children: [
             _buildHeader(),
             const SizedBox(height: 40),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Identification',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+                if (_history.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: _showHistory,
+                    icon: const Icon(FontAwesomeIcons.history, size: 20),
+                    label: const Text(
+                      'Historique',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.teal[700],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
             FeatureCard(
               icon: FontAwesomeIcons.magnifyingGlass,
               title: 'C\'est quoi ça ?',
               subtitle: 'Identifier un objet (bouteille, médicament, chaise…)',
               gradientColors: [Colors.teal[600]!, Colors.teal[700]!],
-              onPressed: (_isScanning || !_mlService.isModelLoaded)
+              onPressed: (_isObjectScanning || !_mlService.isModelLoaded)
                   ? null
                   : _handleObjectLabeling,
-              isLoading: _isScanning,
+              isLoading: _isObjectScanning,
               buttonText: 'Identifier un objet',
             ),
             const SizedBox(height: 28),
@@ -356,8 +522,8 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
               title: 'Scanner un document',
               subtitle: 'Lire et extraire les infos d\'une ordonnance, lettre…',
               gradientColors: [Colors.blue[600]!, Colors.blue[700]!],
-              onPressed: _isScanning ? null : _handleOCR,
-              isLoading: _isScanning,
+              onPressed: _isOcrScanning ? null : _handleOCR,
+              isLoading: _isOcrScanning,
               buttonText: 'Lire le document',
             ),
             const SizedBox(height: 28),

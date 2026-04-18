@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image/image.dart' as img;
@@ -6,6 +8,7 @@ import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart
 
 class DetectionResultDialog extends StatelessWidget {
   final String imagePath;
+  final String? imageBase64;
   final List<DetectedObject> mlObjects;
   final List<Map<String, dynamic>> results;
   final String resultText;
@@ -15,6 +18,7 @@ class DetectionResultDialog extends StatelessWidget {
   const DetectionResultDialog({
     super.key,
     required this.imagePath,
+    this.imageBase64,
     required this.mlObjects,
     required this.results,
     required this.resultText,
@@ -24,10 +28,30 @@ class DetectionResultDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bytes = File(imagePath).readAsBytesSync();
-    final decoded = img.decodeImage(bytes);
-    final imgW = decoded?.width.toDouble() ?? 1.0;
-    final imgH = decoded?.height.toDouble() ?? 1.0;
+    img.Image? decoded;
+    double imgW = 1.0;
+    double imgH = 1.0;
+    Uint8List? imageBytes;
+
+    if (imageBase64 != null && imageBase64!.isNotEmpty) {
+      try {
+        imageBytes = base64Decode(imageBase64!);
+        decoded = img.decodeImage(imageBytes);
+        imgW = decoded?.width.toDouble() ?? 1.0;
+        imgH = decoded?.height.toDouble() ?? 1.0;
+      } catch (e) {
+        debugPrint('Error decoding base64 image in dialog: $e');
+      }
+    } else if (imagePath.isNotEmpty && File(imagePath).existsSync()) {
+      try {
+        imageBytes = File(imagePath).readAsBytesSync();
+        decoded = img.decodeImage(imageBytes!);
+        imgW = decoded?.width.toDouble() ?? 1.0;
+        imgH = decoded?.height.toDouble() ?? 1.0;
+      } catch (e) {
+        debugPrint('Error loading image in dialog: $e');
+      }
+    }
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
@@ -64,12 +88,29 @@ class DetectionResultDialog extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (_, c) => Stack(
                     children: [
-                      Image.file(
-                        File(imagePath),
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        height: double.infinity,
-                      ),
+                      if (imageBytes != null)
+                        Image.memory(
+                          imageBytes,
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          height: double.infinity,
+                        )
+                      else if (imagePath.isNotEmpty &&
+                          File(imagePath).existsSync())
+                        Image.file(
+                          File(imagePath),
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          height: double.infinity,
+                        )
+                      else
+                        const Center(
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Colors.white54,
+                            size: 64,
+                          ),
+                        ),
                       CustomPaint(
                         painter: DetectionPainter(
                           results: results,

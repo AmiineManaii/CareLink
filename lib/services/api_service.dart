@@ -111,11 +111,14 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> analyzeImage(String base64Image) async {
+  Future<Map<String, dynamic>> analyzeImage(String base64Image, String elderId) async {
     final resp = await http.post(
       Uri.parse('$baseUrl/ai/analyze-image'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'image': base64Image}),
+      body: jsonEncode({
+        'image': base64Image,
+        'elderId': elderId,
+      }),
     );
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
