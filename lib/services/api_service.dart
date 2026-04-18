@@ -205,19 +205,37 @@ class ApiService {
     }
   }
 
+  Future<void> createAlert({
+    required String elderId,
+    required String type,
+    required String description,
+    double? latitude,
+    double? longitude,
+  }) async {
+    await http.post(
+      Uri.parse('$baseUrl/alerts/create'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'elderId': elderId,
+        'type': type,
+        'description': description,
+        'latitude': latitude?.toString(),
+        'longitude': longitude?.toString(),
+      }),
+    );
+  }
+
   Future<void> createSosAlert({
     required String elderId,
     required String latitude,
     required String longitude,
   }) async {
-    await http.post(
-      Uri.parse('$baseUrl/alerts/sos'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'elderId': elderId,
-        'latitude': latitude,
-        'longitude': longitude,
-      }),
+    await createAlert(
+      elderId: elderId,
+      type: 'SOS_BUTTON',
+      description: 'Bouton SOS pressé par l\'utilisateur',
+      latitude: double.tryParse(latitude),
+      longitude: double.tryParse(longitude),
     );
   }
 

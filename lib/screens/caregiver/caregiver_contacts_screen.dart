@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../../../features/face_auth/face_storage.dart';
+import '../../../services/auth/face_storage.dart';
 import '../../../services/api_service.dart';
 
 class CaregiverContactsScreen extends StatefulWidget {
@@ -16,7 +15,8 @@ class CaregiverContactsScreen extends StatefulWidget {
   });
 
   @override
-  State<CaregiverContactsScreen> createState() => _CaregiverContactsScreenState();
+  State<CaregiverContactsScreen> createState() =>
+      _CaregiverContactsScreenState();
 }
 
 class _CaregiverContactsScreenState extends State<CaregiverContactsScreen> {
@@ -62,9 +62,13 @@ class _CaregiverContactsScreenState extends State<CaregiverContactsScreen> {
                 GestureDetector(
                   onTap: () async {
                     final picker = ImagePicker();
-                    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                    final pickedFile = await picker.pickImage(
+                      source: ImageSource.gallery,
+                    );
                     if (pickedFile != null) {
-                      setDialogState(() => selectedImage = File(pickedFile.path));
+                      setDialogState(
+                        () => selectedImage = File(pickedFile.path),
+                      );
                     }
                   },
                   child: Container(
@@ -74,11 +78,18 @@ class _CaregiverContactsScreenState extends State<CaregiverContactsScreen> {
                       color: Colors.grey[200],
                       shape: BoxShape.circle,
                       image: selectedImage != null
-                          ? DecorationImage(image: FileImage(selectedImage!), fit: BoxFit.cover)
+                          ? DecorationImage(
+                              image: FileImage(selectedImage!),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
                     child: selectedImage == null
-                        ? const Icon(Icons.add_a_photo, size: 40, color: Colors.grey)
+                        ? const Icon(
+                            Icons.add_a_photo,
+                            size: 40,
+                            color: Colors.grey,
+                          )
                         : null,
                   ),
                 ),
@@ -94,7 +105,9 @@ class _CaregiverContactsScreenState extends State<CaregiverContactsScreen> {
                 ),
                 TextField(
                   controller: relationController,
-                  decoration: const InputDecoration(labelText: 'Relation (ex: Fille, Médecin)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Relation (ex: Fille, Médecin)',
+                  ),
                 ),
               ],
             ),
@@ -106,11 +119,14 @@ class _CaregiverContactsScreenState extends State<CaregiverContactsScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (nameController.text.isEmpty || phoneController.text.isEmpty) return;
-                
+                if (nameController.text.isEmpty ||
+                    phoneController.text.isEmpty) {
+                  return;
+                }
+
                 final caregiverId = InMemoryFaceStorage().getCaregiverId();
                 if (caregiverId == null) return;
-                
+
                 try {
                   await _apiService.addContact({
                     'name': nameController.text,
@@ -119,13 +135,13 @@ class _CaregiverContactsScreenState extends State<CaregiverContactsScreen> {
                     'elderId': widget.elderId,
                     'caregiverId': caregiverId,
                   }, image: selectedImage);
-                  
+
                   Navigator.pop(context);
                   _fetchContacts();
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
                 }
               },
               child: const Text('Ajouter'),
@@ -148,52 +164,69 @@ class _CaregiverContactsScreenState extends State<CaregiverContactsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _contacts.isEmpty
-              ? const Center(child: Text('Aucun contact enregistré'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _contacts.length,
-                  itemBuilder: (context, index) {
-                    final contact = _contacts[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue[100],
-                          backgroundImage: contact['photoUrl'] != null
-                              ? NetworkImage('${_apiService.baseUrl}${contact['photoUrl']}')
-                              : null,
-                          child: contact['photoUrl'] == null
-                              ? const Icon(Icons.person, color: Colors.blue)
-                              : null,
-                        ),
-                        title: Text(contact['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${contact['relation']} • ${contact['phone']}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Supprimer le contact'),
-                                content: const Text('Êtes-vous sûr de vouloir supprimer ce contact ?'),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Non')),
-                                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Oui')),
-                                ],
+          ? const Center(child: Text('Aucun contact enregistré'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _contacts.length,
+              itemBuilder: (context, index) {
+                final contact = _contacts[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.blue[100],
+                      backgroundImage: contact['photoUrl'] != null
+                          ? NetworkImage(
+                              '${_apiService.baseUrl}${contact['photoUrl']}',
+                            )
+                          : null,
+                      child: contact['photoUrl'] == null
+                          ? const Icon(Icons.person, color: Colors.blue)
+                          : null,
+                    ),
+                    title: Text(
+                      contact['name'],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${contact['relation']} • ${contact['phone']}',
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Supprimer le contact'),
+                            content: const Text(
+                              'Êtes-vous sûr de vouloir supprimer ce contact ?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Non'),
                               ),
-                            );
-                            
-                            if (confirm == true) {
-                              await _apiService.deleteContact(contact['_id']);
-                              _fetchContacts();
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Oui'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true) {
+                          await _apiService.deleteContact(contact['_id']);
+                          _fetchContacts();
+                        }
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddContactDialog,
         backgroundColor: Colors.blue[600],

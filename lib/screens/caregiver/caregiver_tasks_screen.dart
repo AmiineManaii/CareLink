@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
-import '../../widgets/custom_app_bar.dart';
+import '../../widgets/common/custom_app_bar.dart';
 
 class CaregiverTasksScreen extends StatefulWidget {
   final String elderId;
@@ -72,7 +71,10 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
           style: const TextStyle(fontSize: 22, height: 1.4),
           textAlign: TextAlign.center,
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
         actions: [
           Row(
             children: [
@@ -83,7 +85,9 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                     backgroundColor: Colors.grey[300],
                     foregroundColor: Colors.black87,
                     padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     elevation: 0,
                   ),
                   child: const Text(
@@ -99,11 +103,17 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[700],
                     padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                   child: const Text(
                     'OUI',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -116,7 +126,9 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
     if (confirm != true) return;
 
     try {
-      final result = await _apiService.updateTask(task['_id'], {'isCompleted': true});
+      final result = await _apiService.updateTask(task['_id'], {
+        'isCompleted': true,
+      });
 
       if (result['success'] == true) {
         _loadTasks();
@@ -174,7 +186,9 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                     decoration: InputDecoration(
                       labelText: 'Titre de la tâche',
                       hintText: 'Ex: Prendre mes médicaments',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       contentPadding: const EdgeInsets.all(20),
                     ),
                   ),
@@ -186,13 +200,18 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                     style: const TextStyle(fontSize: 18),
                     decoration: InputDecoration(
                       labelText: 'Description (optionnel)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       contentPadding: const EdgeInsets.all(20),
                     ),
                   ),
                   const SizedBox(height: 32),
 
-                  const Text('Heure de la tâche', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Heure de la tâche',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 16),
 
                   ValueListenableBuilder<TimeOfDay>(
@@ -210,7 +229,8 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                     onPressed: () async {
                       if (titleController.text.trim().isEmpty) return;
 
-                      final timeStr = '${timeNotifier.value.hour.toString().padLeft(2, '0')}:${timeNotifier.value.minute.toString().padLeft(2, '0')}';
+                      final timeStr =
+                          '${timeNotifier.value.hour.toString().padLeft(2, '0')}:${timeNotifier.value.minute.toString().padLeft(2, '0')}';
 
                       final result = await _apiService.addTask(
                         elderId: widget.elderId,
@@ -228,12 +248,18 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue[700],
                       padding: const EdgeInsets.symmetric(vertical: 20),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       minimumSize: const Size(double.infinity, 60),
                     ),
                     child: const Text(
                       'ENREGISTRER',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -250,21 +276,48 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildTimeColumn('Heures', time.hour, 24, (newHour) => onChanged(TimeOfDay(hour: newHour, minute: time.minute))),
+        _buildTimeColumn(
+          'Heures',
+          time.hour,
+          24,
+          (newHour) => onChanged(TimeOfDay(hour: newHour, minute: time.minute)),
+        ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 24),
-          child: Text(':', style: TextStyle(fontSize: 64, fontWeight: FontWeight.bold, color: Colors.blue)),
+          child: Text(
+            ':',
+            style: TextStyle(
+              fontSize: 64,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
         ),
-        _buildTimeColumn('Minutes', time.minute, 60, (newMinute) => onChanged(TimeOfDay(hour: time.hour, minute: newMinute))),
+        _buildTimeColumn(
+          'Minutes',
+          time.minute,
+          60,
+          (newMinute) =>
+              onChanged(TimeOfDay(hour: time.hour, minute: newMinute)),
+        ),
       ],
     );
   }
 
-  Widget _buildTimeColumn(String label, int value, int max, Function(int) onChange) {
+  Widget _buildTimeColumn(
+    String label,
+    int value,
+    int max,
+    Function(int) onChange,
+  ) {
     return Column(
       children: [
         IconButton(
-          icon: const Icon(Icons.keyboard_arrow_up, size: 48, color: Colors.blue),
+          icon: const Icon(
+            Icons.keyboard_arrow_up,
+            size: 48,
+            color: Colors.blue,
+          ),
           onPressed: () => onChange((value + 1) % max),
         ),
         Container(
@@ -280,10 +333,17 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down, size: 48, color: Colors.blue),
+          icon: const Icon(
+            Icons.keyboard_arrow_down,
+            size: 48,
+            color: Colors.blue,
+          ),
           onPressed: () => onChange((value - 1 + max) % max),
         ),
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }
@@ -296,11 +356,17 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
         title: const Text('Supprimer ?'),
         content: Text('Voulez-vous supprimer "$title" ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ANNULER')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ANNULER'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('SUPPRIMER', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'SUPPRIMER',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -319,16 +385,20 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
   Widget _buildTaskItem(dynamic task) {
     final bool isCompleted = task['isCompleted'] ?? false;
     final IconData taskIcon = _getTaskIcon(task['title']);
-    
+
     final Color baseColor = _getTaskColor(task['title']);
 
-    final Color cardColor = isCompleted ? Colors.green[50]! : baseColor.withOpacity(0.08);
+    final Color cardColor = isCompleted
+        ? Colors.green[50]!
+        : baseColor.withOpacity(0.08);
     final Color iconColor = isCompleted ? Colors.green[700]! : baseColor;
     final Color textColor = isCompleted ? Colors.green[900]! : Colors.black87;
 
     return Dismissible(
       key: Key(task['_id'].toString()),
-      direction: isCompleted ? DismissDirection.none : DismissDirection.endToStart,
+      direction: isCompleted
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
       onDismissed: (_) => _toggleTaskStatus(task),
       background: Container(
         alignment: Alignment.centerRight,
@@ -341,8 +411,8 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         elevation: isCompleted ? 4 : 8,
         color: cardColor,
-        shadowColor: isCompleted 
-            ? Colors.green.withOpacity(0.2) 
+        shadowColor: isCompleted
+            ? Colors.green.withOpacity(0.2)
             : baseColor.withOpacity(0.25),
         child: InkWell(
           onTap: isCompleted ? null : () => _toggleTaskStatus(task),
@@ -356,16 +426,12 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                   width: 78,
                   height: 78,
                   decoration: BoxDecoration(
-                    color: isCompleted 
-                        ? Colors.green[100] 
+                    color: isCompleted
+                        ? Colors.green[100]
                         : baseColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(22),
                   ),
-                  child: Icon(
-                    taskIcon,
-                    size: 42,
-                    color: iconColor,
-                  ),
+                  child: Icon(taskIcon, size: 42, color: iconColor),
                 ),
                 const SizedBox(width: 22),
 
@@ -379,7 +445,9 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: textColor,
-                          decoration: isCompleted ? TextDecoration.lineThrough : null,
+                          decoration: isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -392,18 +460,23 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w600,
-                              color: isCompleted ? Colors.green[700] : Colors.black87,
+                              color: isCompleted
+                                  ? Colors.green[700]
+                                  : Colors.black87,
                             ),
                           ),
                         ],
                       ),
-                      if (task['description']?.toString().trim().isNotEmpty ?? false) ...[
+                      if (task['description']?.toString().trim().isNotEmpty ??
+                          false) ...[
                         const SizedBox(height: 12),
                         Text(
                           task['description'],
                           style: TextStyle(
                             fontSize: 18,
-                            color: isCompleted ? Colors.green[800] : Colors.grey[700],
+                            color: isCompleted
+                                ? Colors.green[800]
+                                : Colors.grey[700],
                             height: 1.4,
                           ),
                           maxLines: 2,
@@ -430,7 +503,11 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
                       ),
                     const SizedBox(height: 20),
                     IconButton(
-                      icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 36),
+                      icon: const Icon(
+                        Icons.delete_forever,
+                        color: Colors.redAccent,
+                        size: 36,
+                      ),
                       onPressed: () => _deleteTask(task['_id'], task['title']),
                     ),
                   ],
@@ -446,115 +523,222 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
   Color _getTaskColor(String title) {
     final String t = title.toLowerCase().trim();
 
-    if (t.contains('medic') || t.contains('pilule') || t.contains('cachet') || t.contains('médicament')) 
+    if (t.contains('medic') ||
+        t.contains('pilule') ||
+        t.contains('cachet') ||
+        t.contains('médicament')) {
       return Colors.purple[600]!;
-
-    if (t.contains('march') || t.contains('promen') || t.contains('balade')) 
+    }
+    if (t.contains('march') || t.contains('promen') || t.contains('balade')) {
       return Colors.orange[600]!;
-
-    if (t.contains('repas') || t.contains('manger') || t.contains('déjeuner') || t.contains('dîner')) 
+    }
+    if (t.contains('repas') ||
+        t.contains('manger') ||
+        t.contains('déjeuner') ||
+        t.contains('dîner')) {
       return Colors.red[600]!;
-
-    if (t.contains('eau') || t.contains('boire') || t.contains('hydrat')) 
+    }
+    if (t.contains('eau') || t.contains('boire') || t.contains('hydrat')) {
       return Colors.blue[600]!;
-
-    if (t.contains('douche') || t.contains('toilette') || t.contains('bain')) 
+    }
+    if (t.contains('douche') || t.contains('toilette') || t.contains('bain')) {
       return Colors.teal[600]!;
-
-    if (t.contains('lecture') || t.contains('lire') || t.contains('journal') || t.contains('livre')) 
+    }
+    if (t.contains('lecture') ||
+        t.contains('lire') ||
+        t.contains('journal') ||
+        t.contains('livre')) {
       return Colors.brown[600]!;
-
-    if (t.contains('télé') || t.contains('tv') || t.contains('film')) 
+    }
+    if (t.contains('télé') || t.contains('tv') || t.contains('film')) {
       return Colors.indigo[600]!;
-
-    if (t.contains('appel') || t.contains('téléphon') || t.contains('famille')) 
+    }
+    if (t.contains('appel') ||
+        t.contains('téléphon') ||
+        t.contains('famille')) {
       return Colors.green[600]!;
-
-    if (t.contains('sport') || t.contains('exercice') || t.contains('gymn')) 
+    }
+    if (t.contains('sport') || t.contains('exercice') || t.contains('gymn')) {
       return Colors.pink[600]!;
-
-    if (t.contains('dormir') || t.contains('sieste')) 
+    }
+    if (t.contains('dormir') || t.contains('sieste')) {
       return Colors.deepPurple[600]!;
-
-    if (t.contains('musique') || t.contains('radio')) 
+    }
+    if (t.contains('musique') || t.contains('radio')) {
       return Colors.amber[600]!;
-
-    if (t.contains('jardin') || t.contains('plante')) 
+    }
+    if (t.contains('jardin') || t.contains('plante')) {
       return Colors.green[700]!;
+    }
 
     return Colors.blue[600]!;
   }
 
   IconData _getTaskIcon(String title) {
-      final String t = title.toLowerCase().trim();
+    final String t = title.toLowerCase().trim();
 
-      if (t.contains('medic') || t.contains('pilule') || t.contains('cachet') || t.contains('médicament') || t.contains('comprimé') || t.contains('goutte') || t.contains('sirop') || t.contains('injection') || t.contains('pansement')) {
-        return Icons.medical_services;
-      }
-
-      if (t.contains('march') || t.contains('promen') || t.contains('balade') || t.contains('marcher') || t.contains('pied') || t.contains('course') || t.contains('jogging')) {
-        return Icons.directions_walk;
-      }
-
-      if (t.contains('repas') || t.contains('manger') || t.contains('déjeuner') || t.contains('dîner') || t.contains('diner') || t.contains('petit déjeuner') || t.contains('petit-dejeuner') || t.contains('collation') || t.contains('goûter') || t.contains('fruit') || t.contains('souper')) {
-        return Icons.restaurant;
-      }
-
-      if (t.contains('eau') || t.contains('boire') || t.contains('hydrat') || t.contains('verre d\'eau') || t.contains('tisane') || t.contains('thé') || t.contains('café')) {
-        return Icons.water_drop;
-      }
-
-      if (t.contains('douche') || t.contains('bain') || t.contains('toilette') || t.contains('lavage') || t.contains('se laver') || t.contains('brosse à dent') || t.contains('dent') || t.contains('rasage') || t.contains('coiffure') || t.contains('cheveux')) {
-        return Icons.shower;
-      }
-
-      if (t.contains('lecture') || t.contains('lire') || t.contains('journal') || t.contains('livre') || t.contains('magazine') || t.contains('nouvelle') || t.contains('prière') || t.contains('quran') || t.contains('coran')) {
-        return Icons.menu_book;
-      }
-
-      if (t.contains('télé') || t.contains('tv') || t.contains('film') || t.contains('série') || t.contains('émission') || t.contains('journal télévisé') || t.contains('match')) {
-        return Icons.tv;
-      }
-
-      if (t.contains('appel') || t.contains('téléphon') || t.contains('appeler') || t.contains('famille') || t.contains('fils') || t.contains('fille') || t.contains('petit fils') || t.contains('petite fille') || t.contains('enfant') || t.contains('voix')) {
-        return Icons.phone;
-      }
-
-      if (t.contains('sport') || t.contains('exercice') || t.contains('gymnastique') || t.contains('gym') || t.contains('mouvement') || t.contains('étirement') || t.contains('yoga')) {
-        return Icons.fitness_center;
-      }
-
-      if (t.contains('course') || t.contains('magasin') || t.contains('acheter') || t.contains('courses') || t.contains('marché') || t.contains('supermarché')) {
-        return Icons.shopping_cart;
-      }
-
-      if (t.contains('dormir') || t.contains('sieste') || t.contains('coucher') || t.contains('lit') || t.contains('sommeil')) {
-        return Icons.bed;
-      }
-
-      if (t.contains('musique') || t.contains('radio') || t.contains('chanter') || t.contains('chanson')) {
-        return Icons.music_note;
-      }
-
-      if (t.contains('jardin') || t.contains('plante') || t.contains('arroser') || t.contains('fleur')) {
-        return Icons.local_florist;
-      }
-
-      if (t.contains('prière') || t.contains('prier') || t.contains('mosquée') || t.contains('église') || t.contains('messe')) {
-        return Icons.church;
-      }
-
-      if (t.contains('médecin') || t.contains('docteur') || t.contains('rendez-vous') || t.contains('rdv') || t.contains('consultation') || t.contains('hôpital')) {
-        return Icons.medical_services_outlined;
-      }
-
-      return Icons.task_alt;
+    if (t.contains('medic') ||
+        t.contains('pilule') ||
+        t.contains('cachet') ||
+        t.contains('médicament') ||
+        t.contains('comprimé') ||
+        t.contains('goutte') ||
+        t.contains('sirop') ||
+        t.contains('injection') ||
+        t.contains('pansement')) {
+      return Icons.medical_services;
     }
+
+    if (t.contains('march') ||
+        t.contains('promen') ||
+        t.contains('balade') ||
+        t.contains('marcher') ||
+        t.contains('pied') ||
+        t.contains('course') ||
+        t.contains('jogging')) {
+      return Icons.directions_walk;
+    }
+
+    if (t.contains('repas') ||
+        t.contains('manger') ||
+        t.contains('déjeuner') ||
+        t.contains('dîner') ||
+        t.contains('diner') ||
+        t.contains('petit déjeuner') ||
+        t.contains('petit-dejeuner') ||
+        t.contains('collation') ||
+        t.contains('goûter') ||
+        t.contains('fruit') ||
+        t.contains('souper')) {
+      return Icons.restaurant;
+    }
+
+    if (t.contains('eau') ||
+        t.contains('boire') ||
+        t.contains('hydrat') ||
+        t.contains('verre d\'eau') ||
+        t.contains('tisane') ||
+        t.contains('thé') ||
+        t.contains('café')) {
+      return Icons.water_drop;
+    }
+
+    if (t.contains('douche') ||
+        t.contains('bain') ||
+        t.contains('toilette') ||
+        t.contains('lavage') ||
+        t.contains('se laver') ||
+        t.contains('brosse à dent') ||
+        t.contains('dent') ||
+        t.contains('rasage') ||
+        t.contains('coiffure') ||
+        t.contains('cheveux')) {
+      return Icons.shower;
+    }
+
+    if (t.contains('lecture') ||
+        t.contains('lire') ||
+        t.contains('journal') ||
+        t.contains('livre') ||
+        t.contains('magazine') ||
+        t.contains('nouvelle') ||
+        t.contains('prière') ||
+        t.contains('quran') ||
+        t.contains('coran')) {
+      return Icons.menu_book;
+    }
+
+    if (t.contains('télé') ||
+        t.contains('tv') ||
+        t.contains('film') ||
+        t.contains('série') ||
+        t.contains('émission') ||
+        t.contains('journal télévisé') ||
+        t.contains('match')) {
+      return Icons.tv;
+    }
+
+    if (t.contains('appel') ||
+        t.contains('téléphon') ||
+        t.contains('appeler') ||
+        t.contains('famille') ||
+        t.contains('fils') ||
+        t.contains('fille') ||
+        t.contains('petit fils') ||
+        t.contains('petite fille') ||
+        t.contains('enfant') ||
+        t.contains('voix')) {
+      return Icons.phone;
+    }
+
+    if (t.contains('sport') ||
+        t.contains('exercice') ||
+        t.contains('gymnastique') ||
+        t.contains('gym') ||
+        t.contains('mouvement') ||
+        t.contains('étirement') ||
+        t.contains('yoga')) {
+      return Icons.fitness_center;
+    }
+
+    if (t.contains('course') ||
+        t.contains('magasin') ||
+        t.contains('acheter') ||
+        t.contains('courses') ||
+        t.contains('marché') ||
+        t.contains('supermarché')) {
+      return Icons.shopping_cart;
+    }
+
+    if (t.contains('dormir') ||
+        t.contains('sieste') ||
+        t.contains('coucher') ||
+        t.contains('lit') ||
+        t.contains('sommeil')) {
+      return Icons.bed;
+    }
+
+    if (t.contains('musique') ||
+        t.contains('radio') ||
+        t.contains('chanter') ||
+        t.contains('chanson')) {
+      return Icons.music_note;
+    }
+
+    if (t.contains('jardin') ||
+        t.contains('plante') ||
+        t.contains('arroser') ||
+        t.contains('fleur')) {
+      return Icons.local_florist;
+    }
+
+    if (t.contains('prière') ||
+        t.contains('prier') ||
+        t.contains('mosquée') ||
+        t.contains('église') ||
+        t.contains('messe')) {
+      return Icons.church;
+    }
+
+    if (t.contains('médecin') ||
+        t.contains('docteur') ||
+        t.contains('rendez-vous') ||
+        t.contains('rdv') ||
+        t.contains('consultation') ||
+        t.contains('hôpital')) {
+      return Icons.medical_services_outlined;
+    }
+
+    return Icons.task_alt;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Tâches de ${widget.elderName}', showBackButton: true),
+      appBar: CustomAppBar(
+        title: 'Tâches de ${widget.elderName}',
+        showBackButton: true,
+      ),
       backgroundColor: Colors.grey[50],
       body: RefreshIndicator(
         onRefresh: _loadTasks,
@@ -563,25 +747,38 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
             _buildCalendarStrip(),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(strokeWidth: 6))
+                  ? const Center(
+                      child: CircularProgressIndicator(strokeWidth: 6),
+                    )
                   : _tasks.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.assignment_outlined, size: 140, color: Colors.grey[300]),
-                              const SizedBox(height: 24),
-                              const Text('Aucune tâche aujourd\'hui', style: TextStyle(fontSize: 24, color: Colors.grey)),
-                              const SizedBox(height: 8),
-                              const Text('Appuyez sur + pour ajouter', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assignment_outlined,
+                            size: 140,
+                            color: Colors.grey[300],
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(20),
-                          itemCount: _tasks.length,
-                          itemBuilder: (context, index) => _buildTaskItem(_tasks[index]),
-                        ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Aucune tâche aujourd\'hui',
+                            style: TextStyle(fontSize: 24, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Appuyez sur + pour ajouter',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: _tasks.length,
+                      itemBuilder: (context, index) =>
+                          _buildTaskItem(_tasks[index]),
+                    ),
             ),
           ],
         ),
@@ -602,15 +799,25 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.blue[50],
-        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.1), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(color: Colors.blue.withOpacity(0.1), blurRadius: 10),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_rounded, size: 36, color: Colors.blue),
+            icon: const Icon(
+              Icons.arrow_back_ios_rounded,
+              size: 36,
+              color: Colors.blue,
+            ),
             onPressed: () {
-              setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1)));
+              setState(
+                () => _selectedDate = _selectedDate.subtract(
+                  const Duration(days: 1),
+                ),
+              );
               _loadTasks();
             },
           ),
@@ -618,18 +825,32 @@ class _CaregiverTasksScreenState extends State<CaregiverTasksScreen> {
             children: [
               Text(
                 DateFormat('EEEE', 'fr_FR').format(_selectedDate).toUpperCase(),
-                style: TextStyle(fontSize: 18, color: Colors.blue[800], fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.blue[800],
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
                 DateFormat('d MMMM yyyy', 'fr_FR').format(_selectedDate),
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           IconButton(
-            icon: const Icon(Icons.arrow_forward_ios_rounded, size: 36, color: Colors.blue),
+            icon: const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 36,
+              color: Colors.blue,
+            ),
             onPressed: () {
-              setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1)));
+              setState(
+                () =>
+                    _selectedDate = _selectedDate.add(const Duration(days: 1)),
+              );
               _loadTasks();
             },
           ),

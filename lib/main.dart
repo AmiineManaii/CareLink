@@ -1,24 +1,15 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:care_link/features/face_auth/face_login_screen.dart';
-import 'package:care_link/features/face_auth/face_signup_screen.dart';
-import 'package:care_link/services/api_service.dart';
+import 'package:care_link/screens/auth/face_login_screen.dart';
+import 'package:care_link/screens/auth/face_signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'screens/elder/home_screen.dart';
-import 'screens/elder/accessibility_screen.dart';
-import 'screens/elder/contacts_screen.dart';
-import 'screens/elder/medications_screen.dart';
-import 'screens/elder/family_dashboard_screen.dart';
-import 'features/face_auth/face_storage.dart';
-import 'screens/elder/alerts_screen.dart';
-import 'screens/elder/daily_tasks_screen.dart';
+import 'services/auth/face_storage.dart';
 import 'screens/caregiver/caregiver_login_screen.dart';
 import 'screens/caregiver/caregiver_navigation.dart';
+import 'screens/elder/navigation/elderly_navigation.dart';
 import 'services/permission_service.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -325,127 +316,4 @@ class AuthLandingScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-// Keeping MainNavigation for later reference if needed, but unused for now
-class ElderlyNavigation extends StatefulWidget {
-  const ElderlyNavigation({super.key});
-
-  @override
-  State<ElderlyNavigation> createState() => _ElderlyNavigationState();
-}
-
-class _ElderlyNavigationState extends State<ElderlyNavigation> {
-  IO.Socket? _socket;
-  Timer? _heartbeatTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _initSocket();
-  }
-
-  @override
-  void dispose() {
-    _heartbeatTimer?.cancel();
-    _socket?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _initSocket() async {
-    final elderId = InMemoryFaceStorage().getElderId();
-    if (elderId == null) return;
-    final baseUrl = ApiService().baseUrl;
-    try {
-      _socket = IO.io(
-        baseUrl,
-        IO.OptionBuilder()
-            .setTransports(['websocket'])
-            .disableAutoConnect()
-            .build(),
-      );
-      _socket!.onConnect((_) {
-        debugPrint('Elder connected to socket');
-        _socket!.emit('registerElder', {'elderId': elderId});
-        _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-          _socket!.emit('elderHeartbeat', {'elderId': elderId});
-        });
-      });
-      _socket!.connect();
-    } catch (e) {
-      debugPrint('Error initializing socket for elder: $e');
-    }
-  }
-
-  void _navigateTo(String view) {
-    Widget screen;
-    switch (view) {
-      case 'medications':
-        screen = const MedicationsScreen();
-        break;
-      case 'contacts':
-        screen = const ContactsScreen();
-        break;
-      case 'accessibility':
-        screen = const AccessibilityScreen();
-        break;
-      case 'family':
-        screen = FamilyDashboardScreen(onBack: _goBack);
-        break;
-      case 'alerts':
-        screen = const AlertsScreen();
-        break;
-      case 'daily_tasks':
-        screen = const DailyTasksScreen();
-        break;
-      default:
-        return;
-    }
-
-    Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
-  }
-
-  void _goBack() {
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return HomeScreen(onNavigate: _navigateTo);
-  }
-
-  /*@override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: HomeScreen(onNavigate: _navigateTo),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton(
-            heroTag: "signupBtn",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FaceSignupScreen()),
-              );
-            },
-            child: const Icon(Icons.person_add),
-            tooltip: "Test Signup facial",
-          ),
-          const SizedBox(height: 12),
-          FloatingActionButton(
-            heroTag: "loginBtn",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FaceLoginScreen()),
-              );
-            },
-            child: const Icon(Icons.login),
-            tooltip: "Test Login facial",
-          ),
-        ],
-      ),
-    );
-  }*/
 }

@@ -1,15 +1,14 @@
-import 'package:care_link/features/face_auth/face_storage.dart';
+import 'package:care_link/services/auth/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../widgets/custom_app_bar.dart';
+import '../../widgets/common/custom_app_bar.dart';
 import '../../models/medication.dart';
 import 'package:intl/intl.dart';
 import 'package:care_link/services/medication_reminder_service.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import 'package:record/record.dart';
 
@@ -26,13 +25,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
   String? _error;
   final Set<String> _takenMedications = {};
 
-  // Speech to Text & Record
   final stt.SpeechToText _speech = stt.SpeechToText();
   final AudioRecorder _recorder = AudioRecorder();
   final FlutterTts _flutterTts = FlutterTts();
-  bool _isListening = false;
-  bool _isRecording = false;
-  String? _audioPath;
 
   @override
   void initState() {
@@ -51,37 +46,6 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
   Future<void> _initSpeech() async {
     await _speech.initialize();
     await _flutterTts.setLanguage("fr-FR");
-  }
-
-  Future<void> _startRecording() async {
-    try {
-      if (await _recorder.hasPermission()) {
-        final dir = await getTemporaryDirectory();
-        final path =
-            '${dir.path}/med_confirmation_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-        await _recorder.start(RecordConfig(), path: path);
-        setState(() {
-          _isRecording = true;
-          _audioPath = path;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error starting recording: $e");
-    }
-  }
-
-  Future<String?> _stopRecording() async {
-    try {
-      final path = await _recorder.stop();
-      setState(() {
-        _isRecording = false;
-      });
-      return path;
-    } catch (e) {
-      debugPrint("Error stopping recording: $e");
-      return null;
-    }
   }
 
   void _showConfirmationDialog(Medication med) {
@@ -125,14 +89,14 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       // Annuler la notification programmée car le médicament a été pris
       await MedicationReminderService.cancelMedication(med);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Prise confirmée !")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Prise confirmée !")));
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur : $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Erreur : $e")));
     }
   }
 
@@ -151,9 +115,15 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       final allMeds = data.map((json) => Medication.fromJson(json)).toList();
 
       // Récupérer l'historique des prises d'aujourd'hui
-      final historyToday = await ApiService().getElderMedicationHistoryToday(elderId);
+      final historyToday = await ApiService().getElderMedicationHistoryToday(
+        elderId,
+      );
       final takenTodayIds = historyToday
-          .map((log) => log['medicationId']['_id']?.toString() ?? log['medicationId']?.toString())
+          .map(
+            (log) =>
+                log['medicationId']['_id']?.toString() ??
+                log['medicationId']?.toString(),
+          )
           .where((id) => id != null)
           .cast<String>()
           .toSet();
@@ -201,13 +171,21 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       });
 
       // Programmer les notifications uniquement pour les médicaments NON pris
-      final untakenMeds = todayMeds.where((m) => !takenTodayIds.contains(m.id)).toList();
+      final untakenMeds = todayMeds
+          .where((m) => !takenTodayIds.contains(m.id))
+          .toList();
       await MedicationReminderService.scheduleForMedications(untakenMeds);
 
       // Annuler explicitement les notifications pour les médicaments pris aujourd'hui
       for (var medId in takenTodayIds) {
-        final med = allMeds.firstWhere((m) => m.id == medId, orElse: () => allMeds.first);
-        await MedicationReminderService.cancelMedicationById(medId, med.times.length);
+        final med = allMeds.firstWhere(
+          (m) => m.id == medId,
+          orElse: () => allMeds.first,
+        );
+        await MedicationReminderService.cancelMedicationById(
+          medId,
+          med.times.length,
+        );
       }
     } catch (e) {
       setState(() {
@@ -215,29 +193,6 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         _isLoading = false;
       });
     }
-  }
-
-  void _toggleMedication(String id) {
-    setState(() {
-      if (_takenMedications.contains(id)) {
-        _takenMedications.remove(id);
-      } else {
-        _takenMedications.add(id);
-      }
-    });
-  }
-
-  void _speakMedication(Medication med) {
-    final textToSpeak =
-        "Il est l'heure de prendre ${med.name}, ${med.dosage}. ${med.instructions}";
-    // TTS logic here
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Lecture vocale'),
-        content: Text(textToSpeak),
-      ),
-    );
   }
 
   Medication? _getNextMedication() {
@@ -582,7 +537,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                     ],
                   ),
                   child: Icon(
-                    isTaken ? FontAwesomeIcons.check : FontAwesomeIcons.handHoldingMedical,
+                    isTaken
+                        ? FontAwesomeIcons.check
+                        : FontAwesomeIcons.handHoldingMedical,
                     color: Colors.white,
                     size: 24,
                   ),
@@ -647,9 +604,7 @@ class _MedicationConfirmationDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       title: Text(
         "Confirmer : ${widget.medicationName}",
         textAlign: TextAlign.center,
@@ -692,10 +647,7 @@ class _MedicationConfirmationDialogState
                         final dir = await getTemporaryDirectory();
                         final path =
                             '${dir.path}/med_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
-                        await _recorder.start(
-                          const RecordConfig(),
-                          path: path,
-                        );
+                        await _recorder.start(const RecordConfig(), path: path);
                         setState(() {
                           _isRecording = true;
                           _audioPath = path;

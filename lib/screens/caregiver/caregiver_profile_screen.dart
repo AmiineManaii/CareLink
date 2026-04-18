@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:care_link/features/face_auth/face_storage.dart';
+import 'package:flutter/services.dart';
+import 'package:care_link/services/auth/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
-import 'package:care_link/widgets/custom_app_bar.dart';
+import 'package:care_link/widgets/common/custom_app_bar.dart';
+import 'package:care_link/main.dart';
 
 class CaregiverProfileScreen extends StatefulWidget {
   const CaregiverProfileScreen({super.key});
@@ -29,6 +31,25 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
     _fetchProfile();
+  }
+
+  Future<void> _logout() async {
+    await InMemoryFaceStorage().setLoggedIn(false);
+    await InMemoryFaceStorage().setRole(''); // Clear role
+
+    try {
+      const channel = MethodChannel('fall_channel');
+      await channel.invokeMethod('startService');
+    } catch (e) {
+      debugPrint('Error pinging service: $e');
+    }
+
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const StartupGate()),
+      (route) => false,
+    );
   }
 
   Future<void> _fetchProfile() async {
@@ -59,10 +80,7 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
           SnackBar(
             content: Text('Erreur lors du chargement du profil : $e'),
             duration: const Duration(seconds: 10),
-            action: SnackBarAction(
-              label: 'OK',
-              onPressed: () {},
-            ),
+            action: SnackBarAction(label: 'OK', onPressed: () {}),
           ),
         );
       }
@@ -120,10 +138,7 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: const CustomAppBar(
-        title: 'Mon Profil',
-        showBackButton: false,
-      ),
+      appBar: const CustomAppBar(title: 'Mon Profil', showBackButton: false),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -140,12 +155,19 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.blue.shade200, width: 2),
+                              border: Border.all(
+                                color: Colors.blue.shade200,
+                                width: 2,
+                              ),
                             ),
                             child: CircleAvatar(
                               radius: 50,
                               backgroundColor: Colors.blue.shade50,
-                              child: Icon(Icons.person, size: 60, color: Colors.blue.shade600),
+                              child: Icon(
+                                Icons.person,
+                                size: 60,
+                                color: Colors.blue.shade600,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -169,13 +191,31 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
                     const SizedBox(height: 32),
 
                     // Fields
-                    _buildTextField(_firstNameController, 'Prénom', Icons.person_outline),
+                    _buildTextField(
+                      _firstNameController,
+                      'Prénom',
+                      Icons.person_outline,
+                    ),
                     const SizedBox(height: 16),
-                    _buildTextField(_lastNameController, 'Nom', Icons.person_outline),
+                    _buildTextField(
+                      _lastNameController,
+                      'Nom',
+                      Icons.person_outline,
+                    ),
                     const SizedBox(height: 16),
-                    _buildTextField(_emailController, 'Email', Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+                    _buildTextField(
+                      _emailController,
+                      'Email',
+                      Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
                     const SizedBox(height: 16),
-                    _buildTextField(_phoneController, 'Téléphone', Icons.phone_outlined, keyboardType: TextInputType.phone),
+                    _buildTextField(
+                      _phoneController,
+                      'Téléphone',
+                      Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                    ),
                     const SizedBox(height: 16),
 
                     // Gender Dropdown
@@ -188,7 +228,8 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
                         DropdownMenuItem(value: 'Autre', child: Text('Autre')),
                       ],
                       onChanged: (val) => setState(() => _gender = val),
-                      validator: (val) => val == null ? 'Veuillez choisir un genre' : null,
+                      validator: (val) =>
+                          val == null ? 'Veuillez choisir un genre' : null,
                     ),
                     const SizedBox(height: 40),
 
@@ -207,11 +248,35 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
                           elevation: 2,
                         ),
                         child: _isSaving
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : const Text(
                                 'Enregistrer les modifications',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: _logout,
+                        icon: const Icon(Icons.logout, color: Colors.red),
+                        label: const Text(
+                          'Déconnexion',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                       ),
                     ),
                   ],
@@ -231,7 +296,8 @@ class _CaregiverProfileScreenState extends State<CaregiverProfileScreen> {
       controller: controller,
       keyboardType: keyboardType,
       decoration: _inputDecoration(label, icon),
-      validator: (val) => val == null || val.isEmpty ? 'Ce champ est requis' : null,
+      validator: (val) =>
+          val == null || val.isEmpty ? 'Ce champ est requis' : null,
     );
   }
 

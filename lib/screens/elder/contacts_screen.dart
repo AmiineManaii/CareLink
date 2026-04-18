@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../widgets/custom_app_bar.dart';
-import '../../widgets/info_card.dart';
-import '../../widgets/contact_widgets.dart';
+import '../../widgets/common/custom_app_bar.dart';
+import '../../widgets/common/info_card.dart';
+import '../../widgets/common/contact_widgets.dart';
 import '../../models/contact.dart';
-import '../../features/face_auth/face_storage.dart';
+import '../../services/auth/face_storage.dart';
 import '../../services/api_service.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:async';
 
 class ContactsScreen extends StatefulWidget {
@@ -62,8 +61,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
       final dt = DateTime.tryParse(iso)?.toLocal();
       if (dt == null) return 'Hors ligne';
       final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 2)
+      if (diff.inMinutes < 2) {
         return 'Vu il y a ${diff.inSeconds.clamp(0, 119)} s';
+      }
       if (diff.inHours < 1) return 'Vu il y a ${diff.inMinutes} min';
       if (diff.inHours < 24) return 'Vu il y a ${diff.inHours} h';
       return 'Vu le ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} à ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -208,6 +208,29 @@ class _ContactsScreenState extends State<ContactsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            // Voice Command Button
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 80,
+                child: ElevatedButton.icon(
+                  onPressed: _handleVoiceCommand,
+                  icon: const Icon(Icons.mic, size: 32),
+                  label: const Text(
+                    'Commande Vocale',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[600],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             // Caregiver Link / Code
             if (_loadingCaregiver)
               const Padding(
@@ -268,71 +291,66 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 ),
               ),
 
-            
-
-
-    if (_loadingContacts)
-      const Center(child: CircularProgressIndicator())
-    else if (_dynamicContacts.isEmpty)
-      const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
-          child: Text(
-            'Aucun contact enregistré par votre aidant.',
-            style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
-          ),
-        ),
-      )
-    else
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                FontAwesomeIcons.addressBook,
-                color: Colors.blue[500],
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Mes Contacts',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
+            if (_loadingContacts)
+              const Center(child: CircularProgressIndicator())
+            else if (_dynamicContacts.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'Aucun contact enregistré par votre aidant.',
+                    style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+                  ),
                 ),
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        FontAwesomeIcons.addressBook,
+                        color: Colors.blue[500],
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Mes Contacts',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ..._dynamicContacts.map((contactData) {
+                    final String? photoUrl = contactData['photoUrl'];
+                    final contact = Contact(
+                      id: contactData['_id'].hashCode,
+                      name: contactData['name'],
+                      relation: contactData['relation'],
+                      phone: contactData['phone'],
+                      photo: (photoUrl != null && photoUrl.isNotEmpty)
+                          ? '${_apiService.baseUrl}$photoUrl'
+                          : '👤',
+                      favorite: true,
+                    );
+                    return FavoriteContactCard(
+                      contact: contact,
+                      recordingVoice: _recordingVoice,
+                      onCall: () => _handleCall(contact),
+                      onVideoCall: () => _handleVideoCall(contact),
+                      onVoiceMessage: () => _handleVoiceMessage(contact),
+                    );
+                  }),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ..._dynamicContacts.map(
-            (contactData) {
-              final String? photoUrl = contactData['photoUrl'];
-              final contact = Contact(
-                id: contactData['_id'].hashCode,
-                name: contactData['name'],
-                relation: contactData['relation'],
-                phone: contactData['phone'],
-                photo: (photoUrl != null && photoUrl.isNotEmpty)
-                    ? '${_apiService.baseUrl}$photoUrl'
-                    : '👤',
-                favorite: true,
-              );
-              return FavoriteContactCard(
-                contact: contact,
-                recordingVoice: _recordingVoice,
-                onCall: () => _handleCall(contact),
-                onVideoCall: () => _handleVideoCall(contact),
-                onVoiceMessage: () => _handleVoiceMessage(contact),
-              );
-            },
-          ),
-        ],
-      ),
 
-    const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-    // Emergency Numbers
+            // Emergency Numbers
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -360,7 +378,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     mainAxisSpacing: 12,
                     children: [
                       const EmergencyNumberCard(emoji: '🚑', text: 'SAMU 190'),
-                      const EmergencyNumberCard(emoji: '🚓', text: 'Police 197'),
+                      const EmergencyNumberCard(
+                        emoji: '🚓',
+                        text: 'Police 197',
+                      ),
                       const EmergencyNumberCard(
                         emoji: '🚒',
                         text: 'Pompiers 198',

@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:care_link/features/face_auth/face_storage.dart';
+import 'package:care_link/services/auth/face_storage.dart';
 import 'package:care_link/models/medication.dart';
 import 'package:care_link/services/api_service.dart';
-import 'package:care_link/widgets/custom_app_bar.dart';
+import 'package:care_link/widgets/common/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -113,24 +113,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       if (pickedFile != null) {
         setState(() => _imageFile = File(pickedFile.path));
       }
-    }
-  }
-
-  Future<void> _selectDate(BuildContext context, bool isStart) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStart ? _startDate : (_endDate ?? DateTime.now()),
-      firstDate: DateTime(2020), // Allow past dates for history
-      lastDate: DateTime(2101),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-        } else {
-          _endDate = picked;
-        }
-      });
     }
   }
 
@@ -452,7 +434,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
               ],
             ),
           );
-        }).toList(),
+        }),
         TextButton.icon(
           onPressed: _addTime,
           icon: const Icon(Icons.add),

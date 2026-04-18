@@ -2,7 +2,6 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -10,19 +9,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
-import 'package:socket_io_client/socket_io_client.dart' as IO;
-
-import '../../widgets/custom_app_bar.dart';
-import '../../widgets/feature_card.dart';
-import '../../services/ml_service.dart';
-import '../../utils/label_translations.dart';
-import '../../widgets/accessibility/detection_result_dialog.dart';
-import '../../widgets/accessibility/detection_history_dialog.dart';
-import '../../widgets/accessibility/ocr_result_dialog.dart';
-import '../../widgets/accessibility/tts_section.dart';
-import 'package:care_link/services/api_service.dart';
-import 'package:care_link/features/face_auth/face_storage.dart';
+import 'package:care_link/services/presence_service.dart';
 import 'dart:convert';
+import 'dart:async';
+
+
+import '../../widgets/common/custom_app_bar.dart';
+import '../../widgets/common/feature_card.dart';
+import '../../services/ml/ml_service.dart';
+import '../../utils/label_translations.dart';
+import '../../widgets/elder/detection_result_dialog.dart';
+import '../../widgets/elder/detection_history_dialog.dart';
+import '../../widgets/elder/ocr_result_dialog.dart';
+import '../../widgets/elder/tts_section.dart';
+import 'package:care_link/services/api_service.dart';
+import 'package:care_link/services/auth/face_storage.dart';
 
 class AccessibilityScreen extends StatefulWidget {
   const AccessibilityScreen({super.key});
@@ -37,7 +38,8 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _textController = TextEditingController();
-  IO.Socket? _socket;
+  final PresenceService _presenceService = PresenceService();
+  StreamSubscription? _presenceSubscription;
   String? _lastImagePath;
   List<Map<String, dynamic>> _history = [];
 
@@ -55,7 +57,25 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
     _loadSettings();
     _loadHistory();
     _initTts();
-    _initSocket();
+
+    _presenceSubscription = _presenceService.presenceStream.listen((event) {
+      if (event['type'] == 'objectDetectionResult') {
+        final data = event['data'];
+        final String aiResult = data['result'] ?? "";
+        final String imageBase64 = data['image'] ?? "";
+
+        if (aiResult.isNotEmpty && mounted) {
+          final String resultText = "C'est $aiResult.";
+          _saveToHistory(aiResult.toLowerCase(), aiResult, imageBase64);
+          _showResultToast(resultText, aiResult, imageBase64);
+        }
+      } else if (event['type'] == 'objectDetectionError') {
+        if (mounted) {
+          _showSnackBar("Erreur d'analyse IA : ${event['data']['error']}");
+        }
+      }
+    });
+
     _mlService.initialize().then((_) => setState(() {}));
   }
 
@@ -65,53 +85,11 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
     _flutterTts.stop();
     _speech.stop();
     _mlService.dispose();
-    _socket?.dispose();
+    _presenceSubscription?.cancel();
     super.dispose();
   }
 
   // ── Initialisation ──────────────────────────────────────────
-
-  Future<void> _initSocket() async {
-    final elderId = InMemoryFaceStorage().getElderId();
-    if (elderId == null) return;
-    final baseUrl = ApiService().baseUrl;
-    try {
-      _socket = IO.io(
-        baseUrl,
-        IO.OptionBuilder().setTransports(['websocket']).setQuery({
-          'elderId': elderId,
-        }).build(),
-      );
-
-      _socket!.onConnect((_) {
-        debugPrint('Accessibility connected to socket');
-        _socket!.emit('registerElder', {'elderId': elderId});
-      });
-
-      _socket!.on('objectDetectionResult', (data) {
-        final String aiResult = data['result'] ?? "";
-        final String imageBase64 = data['image'] ?? "";
-
-        if (aiResult.isNotEmpty && mounted) {
-          // ✅ Ollama result is used directly as requested by the user
-          final String resultText = "C'est $aiResult.";
-
-          _saveToHistory(aiResult.toLowerCase(), aiResult, imageBase64);
-          _showResultToast(resultText, aiResult, imageBase64);
-        }
-      });
-
-      _socket!.on('objectDetectionError', (data) {
-        if (mounted) {
-          _showSnackBar("Erreur d'analyse IA : ${data['error']}");
-        }
-      });
-
-      _socket!.connect();
-    } catch (e) {
-      debugPrint('Error initializing socket: $e');
-    }
-  }
 
   void _showResultToast(
     String resultText,

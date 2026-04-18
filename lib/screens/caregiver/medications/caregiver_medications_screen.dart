@@ -1,12 +1,11 @@
 import 'package:care_link/models/medication.dart';
 import 'package:care_link/screens/caregiver/medications/add_medication_screen.dart';
 import 'package:care_link/screens/caregiver/medications/caregiver_medication_history_screen.dart';
-import 'package:care_link/features/face_auth/face_storage.dart';
+import 'package:care_link/services/auth/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
-import 'package:care_link/widgets/custom_app_bar.dart';
+import 'package:care_link/widgets/common/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 
 class CaregiverMedicationsScreen extends StatefulWidget {
   final String elderId;
@@ -70,8 +69,9 @@ class _CaregiverMedicationsScreenState
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Confirmer la suppression'),
-        content:
-            const Text('Êtes-vous sûr de vouloir supprimer ce médicament ?'),
+        content: const Text(
+          'Êtes-vous sûr de vouloir supprimer ce médicament ?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -80,7 +80,10 @@ class _CaregiverMedicationsScreenState
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Supprimer', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Supprimer',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -100,9 +103,9 @@ class _CaregiverMedicationsScreenState
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
         }
       }
     }
@@ -140,7 +143,8 @@ class _CaregiverMedicationsScreenState
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddMedicationScreen(elderId: widget.elderId),
+              builder: (context) =>
+                  AddMedicationScreen(elderId: widget.elderId),
             ),
           );
           if (result == true) {
@@ -158,17 +162,17 @@ class _CaregiverMedicationsScreenState
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(strokeWidth: 5))
             : _error != null
-                ? _buildErrorWidget()
-                : _medications.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                        itemCount: _medications.length,
-                        itemBuilder: (context, index) {
-                          final med = _medications[index];
-                          return _buildMedicationCard(med);
-                        },
-                      ),
+            ? _buildErrorWidget()
+            : _medications.isEmpty
+            ? _buildEmptyState()
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                itemCount: _medications.length,
+                itemBuilder: (context, index) {
+                  final med = _medications[index];
+                  return _buildMedicationCard(med);
+                },
+              ),
       ),
     );
   }
@@ -196,13 +200,19 @@ class _CaregiverMedicationsScreenState
                     borderRadius: BorderRadius.circular(18),
                     image: med.photoUrl != null
                         ? DecorationImage(
-                            image: NetworkImage('${ApiService().baseUrl}${med.photoUrl}'),
+                            image: NetworkImage(
+                              '${ApiService().baseUrl}${med.photoUrl}',
+                            ),
                             fit: BoxFit.cover,
                           )
                         : null,
                   ),
                   child: med.photoUrl == null
-                      ? Icon(FontAwesomeIcons.pills, color: Colors.purple[600], size: 36)
+                      ? Icon(
+                          FontAwesomeIcons.pills,
+                          color: Colors.purple[600],
+                          size: 36,
+                        )
                       : null,
                 ),
                 const SizedBox(width: 16),
@@ -233,7 +243,10 @@ class _CaregiverMedicationsScreenState
                 ),
                 // Active Status
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: med.active ? Colors.green[100] : Colors.grey[200],
                     borderRadius: BorderRadius.circular(12),
@@ -273,12 +286,19 @@ class _CaregiverMedicationsScreenState
               const SizedBox(height: 16),
               Text(
                 'Instructions:',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[800]),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 med.instructions ?? '',
-                style: TextStyle(color: Colors.grey[600], fontSize: 15, height: 1.4),
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 15,
+                  height: 1.4,
+                ),
               ),
             ],
             const SizedBox(height: 20),
@@ -337,7 +357,11 @@ class _CaregiverMedicationsScreenState
     );
   }
 
-  Widget _buildInfoChip({required IconData icon, required String text, required Color color}) {
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(

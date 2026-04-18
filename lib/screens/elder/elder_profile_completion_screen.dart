@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:care_link/services/api_service.dart';
-import 'package:care_link/features/face_auth/face_storage.dart';
-import 'package:care_link/main.dart';
+import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/screens/elder/navigation/elderly_navigation.dart';
 
 class ElderProfileCompletionScreen extends StatefulWidget {
   final String elderId;

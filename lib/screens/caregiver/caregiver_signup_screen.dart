@@ -1,5 +1,5 @@
 import 'package:care_link/screens/caregiver/caregiver_navigation.dart';
-import 'package:care_link/features/face_auth/face_storage.dart';
+import 'package:care_link/services/auth/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:flutter/material.dart';
 
