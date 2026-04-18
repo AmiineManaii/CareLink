@@ -55,7 +55,6 @@ class ApiService {
       request.fields['elderId'] = elderId;
       request.fields['profile'] = jsonEncode(profile);
       request.files.add(await http.MultipartFile.fromPath('photo', image.path));
-
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -82,7 +81,6 @@ class ApiService {
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
-      // Return valid: false instead of throwing if it's just not found/invalid
       return {'valid': false, 'message': 'Erreur serveur'};
     }
   }
@@ -115,10 +113,7 @@ class ApiService {
     final resp = await http.post(
       Uri.parse('$baseUrl/ai/analyze-image'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'image': base64Image,
-        'elderId': elderId,
-      }),
+      body: jsonEncode({'image': base64Image, 'elderId': elderId}),
     );
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -178,9 +173,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getCaregiverProfile(String caregiverId) async {
-    final resp = await http.get(
-      Uri.parse('$baseUrl/caregiver/$caregiverId'),
-    );
+    final resp = await http.get(Uri.parse('$baseUrl/caregiver/$caregiverId'));
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
@@ -205,6 +198,7 @@ class ApiService {
     }
   }
 
+  // Alerte générique (utilisée par sos_service.dart)
   Future<void> createAlert({
     required String elderId,
     required String type,
@@ -219,8 +213,9 @@ class ApiService {
         'elderId': elderId,
         'type': type,
         'description': description,
-        'latitude': latitude?.toString(),
-        'longitude': longitude?.toString(),
+        // Envoi en double (number), pas en string
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       }),
     );
   }
@@ -233,7 +228,7 @@ class ApiService {
     await createAlert(
       elderId: elderId,
       type: 'SOS_BUTTON',
-      description: 'Bouton SOS pressé par l\'utilisateur',
+      description: "Bouton SOS pressé par l'utilisateur",
       latitude: double.tryParse(latitude),
       longitude: double.tryParse(longitude),
     );
@@ -284,14 +279,9 @@ class ApiService {
     }
   }
 
-  Future<void> addMedication(
-    Map<String, dynamic> medicationData, {
-    File? image,
-  }) async {
+  Future<void> addMedication(Map<String, dynamic> medicationData, {File? image}) async {
     final uri = Uri.parse('$baseUrl/medications');
     final request = http.MultipartRequest('POST', uri);
-
-    // Add fields
     medicationData.forEach((key, value) {
       if (value != null) {
         if (value is List) {
@@ -301,29 +291,19 @@ class ApiService {
         }
       }
     });
-
-    // Add file
     if (image != null) {
       request.files.add(await http.MultipartFile.fromPath('photo', image.path));
     }
-
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
-
     if (response.statusCode != 201 && response.statusCode != 200) {
       throw Exception('Failed to add medication: ${response.body}');
     }
   }
 
-  Future<void> updateMedication(
-    String id,
-    Map<String, dynamic> medicationData, {
-    File? image,
-  }) async {
+  Future<void> updateMedication(String id, Map<String, dynamic> medicationData, {File? image}) async {
     final uri = Uri.parse('$baseUrl/medications/$id');
     final request = http.MultipartRequest('PUT', uri);
-
-    // Add fields
     medicationData.forEach((key, value) {
       if (value != null) {
         if (value is List) {
@@ -333,15 +313,11 @@ class ApiService {
         }
       }
     });
-
-    // Add file
     if (image != null) {
       request.files.add(await http.MultipartFile.fromPath('photo', image.path));
     }
-
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
-
     if (response.statusCode != 200) {
       throw Exception('Failed to update medication: ${response.body}');
     }
@@ -366,22 +342,15 @@ class ApiService {
   }) async {
     final uri = Uri.parse('$baseUrl/medications/confirm-take');
     final request = http.MultipartRequest('POST', uri);
-
     request.fields['medicationId'] = medicationId;
     request.fields['elderId'] = elderId;
     request.fields['status'] = status;
     if (note != null) request.fields['note'] = note;
-
     if (audioFile != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-        'audio',
-        audioFile.path,
-      ));
+      request.files.add(await http.MultipartFile.fromPath('audio', audioFile.path));
     }
-
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
-
     if (response.statusCode != 201) {
       throw Exception('Failed to confirm medication: ${response.body}');
     }
@@ -411,7 +380,8 @@ class ApiService {
     }
   }
 
-  // --- TASKS ---
+  // --- Tasks ---
+
   Future<Map<String, dynamic>> addTask({
     required String elderId,
     required String title,
@@ -445,10 +415,7 @@ class ApiService {
     return data['tasks'] as List<dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateTask(
-    String id,
-    Map<String, dynamic> data,
-  ) async {
+  Future<Map<String, dynamic>> updateTask(String id, Map<String, dynamic> data) async {
     final resp = await http.put(
       Uri.parse('$baseUrl/tasks/$id'),
       headers: {'Content-Type': 'application/json'},
@@ -464,7 +431,8 @@ class ApiService {
     }
   }
 
-  // --- CONTACTS ---
+  // --- Contacts ---
+
   Future<List<dynamic>> getContacts(String elderId) async {
     final resp = await http.get(
       Uri.parse('$baseUrl/contacts/elder/$elderId'),
@@ -480,18 +448,14 @@ class ApiService {
   Future<void> addContact(Map<String, dynamic> contactData, {File? image}) async {
     final uri = Uri.parse('$baseUrl/contacts');
     final request = http.MultipartRequest('POST', uri);
-
     contactData.forEach((key, value) {
       if (value != null) request.fields[key] = value.toString();
     });
-
     if (image != null) {
       request.files.add(await http.MultipartFile.fromPath('photo', image.path));
     }
-
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
-
     if (response.statusCode != 201) {
       throw Exception('Failed to add contact: ${response.body}');
     }

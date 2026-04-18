@@ -40,6 +40,28 @@ class ElderController {
     }
   }
 
+  async updateProfileWithImage(req, res) {
+    try {
+      const { elderId, profile: profileRaw } = req.body;
+      if (!elderId || !profileRaw) {
+        return res.status(400).json({ error: "elderId et profile requis" });
+      }
+      let profile;
+      try {
+        profile = typeof profileRaw === "string" ? JSON.parse(profileRaw) : profileRaw;
+      } catch {
+        return res.status(400).json({ error: "profile JSON invalide" });
+      }
+      if (req.file) {
+        profile.photoUrl = `/uploads/${req.file.filename}`;
+      }
+      const result = await elderService.updateProfile(elderId, profile);
+      res.json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || "server_error" });
+    }
+  }
+
   async verifyCode(req, res) {
     try {
       const result = await elderService.verifyCode(req.params.code);
@@ -61,6 +83,15 @@ class ElderController {
   async heartbeat(req, res) {
     try {
       const result = await elderService.heartbeat(req.params.id);
+      res.json(result);
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || "server_error" });
+    }
+  }
+
+  async getCaregiver(req, res) {
+    try {
+      const result = await elderService.getCaregiver(req.params.id);
       res.json(result);
     } catch (e) {
       res.status(e.status || 500).json({ error: e.message || "server_error" });

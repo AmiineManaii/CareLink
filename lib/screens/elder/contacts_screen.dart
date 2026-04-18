@@ -82,6 +82,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
     try {
       final data = await ApiService().getElderCaregiver(elderId);
+      debugPrint('Caregiver data received: $data');
       if (mounted) {
         setState(() {
           _elderCode = data['code'];
@@ -187,19 +188,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
     }
   }
 
-  void _handleVoiceCommand() {
-    showDialog(
-      context: context,
-      builder: (context) => const AlertDialog(
-        title: Text('🎤 COMMANDE VOCALE ACTIVÉE'),
-        content: Text(
-          'Exemples de commandes:\n• "Appeler Marie"\n• "Appeler mon médecin"\n• "Envoyer message à Jean"',
-        ),
-        actions: [TextButton(onPressed: null, child: Text('OK'))],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -208,29 +196,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Voice Command Button
-            Padding(
-              padding: const EdgeInsets.only(bottom: 24.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 80,
-                child: ElevatedButton.icon(
-                  onPressed: _handleVoiceCommand,
-                  icon: const Icon(Icons.mic, size: 32),
-                  label: const Text(
-                    'Commande Vocale',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[600],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              ),
-            ),
             // Caregiver Link / Code
             if (_loadingCaregiver)
               const Padding(
@@ -240,43 +205,67 @@ class _ContactsScreenState extends State<ContactsScreen> {
             else if (_caregiver != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 24.0),
-                child: InfoCard(
-                  icon: FontAwesomeIcons.userNurse,
-                  title:
-                      '${_caregiver!['firstName'] ?? 'Mon'} ${_caregiver!['lastName'] ?? 'Aidant'}',
-                  subtitle: _caregiver!['online'] == true
-                      ? 'En ligne'
-                      : (_caregiver!['lastActiveAt'] != null
-                            ? _formatLastSeen(_caregiver!['lastActiveAt'])
-                            : 'Hors ligne'),
-                  gradientColors: [Colors.green[500]!, Colors.green[600]!],
-                  onTap: () {
-                    // Show details dialog
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text(
-                          '${_caregiver!['firstName'] ?? ''} ${_caregiver!['lastName'] ?? ''}',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.userNurse,
+                          color: Colors.green[600],
+                          size: 24,
                         ),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (_caregiver!['phone'] != null)
-                              Text('Tél: ${_caregiver!['phone']}'),
-                            if (_caregiver!['email'] != null)
-                              Text('Email: ${_caregiver!['email']}'),
-                          ],
+                        const SizedBox(width: 8),
+                        Text(
+                          'Mon Aidant',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[800],
+                              ),
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Fermer'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    InfoCard(
+                      icon: FontAwesomeIcons.userNurse,
+                      title:
+                          '${_caregiver!['firstName'] ?? 'Mon'} ${_caregiver!['lastName'] ?? 'Aidant'}',
+                      subtitle: _caregiver!['online'] == true
+                          ? 'En ligne'
+                          : (_caregiver!['lastActiveAt'] != null
+                                ? _formatLastSeen(_caregiver!['lastActiveAt'])
+                                : 'Hors ligne'),
+                      gradientColors: [Colors.green[500]!, Colors.green[600]!],
+                      onTap: () {
+                        // Show details dialog
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(
+                              '${_caregiver!['firstName'] ?? ''} ${_caregiver!['lastName'] ?? ''}',
+                            ),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_caregiver!['phone'] != null)
+                                  Text('Tél: ${_caregiver!['phone']}'),
+                                if (_caregiver!['email'] != null)
+                                  Text('Email: ${_caregiver!['email']}'),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Fermer'),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
+                        );
+                      },
+                    ),
+                  ],
                 ),
               )
             else if (_elderCode != null)

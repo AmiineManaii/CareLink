@@ -167,6 +167,36 @@ class ElderService {
         : null,
     };
   }
+
+  async getCaregiver(elderId) {
+    const elder = await Elder.findById(elderId);
+    if (!elder) throw { status: 404, message: "Elder not found" };
+
+    const caregiver = await Caregiver.findOne({ linkedElderId: elder._id });
+    
+    let caregiverInfo = null;
+    if (caregiver) {
+      let online = false;
+      if (caregiver.lastActiveAt) {
+        const diff = Date.now() - new Date(caregiver.lastActiveAt).getTime();
+        online = diff < 60000;
+      }
+      caregiverInfo = {
+        _id: caregiver._id,
+        firstName: caregiver.profile?.firstName,
+        lastName: caregiver.profile?.lastName,
+        phone: caregiver.phone,
+        email: caregiver.email,
+        online,
+        lastActiveAt: caregiver.lastActiveAt,
+      };
+    }
+
+    return {
+      code: elder.relationCode,
+      caregiver: caregiverInfo,
+    };
+  }
 }
 
 module.exports = new ElderService();

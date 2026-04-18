@@ -6,7 +6,6 @@ const Medication = require('../models/medication');
 const MedicationLog = require('../models/medicationLog');
 const Caregiver = require('../models/caregiver');
 
-// Configure Multer for file uploads (photos et audio)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, '..', 'uploads');
@@ -17,26 +16,22 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + file.fieldname + ext);
   }
 });
+const upload = multer({ storage });
 
-const upload = multer({ storage: storage });
+// ── Routes spécifiques EN PREMIER (avant /:elderId) ──────────────────────────
 
-// Route pour confirmer la prise d'un médicament (avec audio/note optionnel)
+// Confirmer la prise d'un médicament
 router.post('/confirm-take', upload.single('audio'), async (req, res) => {
   try {
     const { medicationId, elderId, note, status } = req.body;
-    
     if (!medicationId || !elderId) {
       return res.status(400).json({ error: 'medicationId et elderId requis' });
     }
-
-    // Trouver le caregiver lié pour l'historique
     const caregiver = await Caregiver.findOne({ linkedElderId: elderId });
     if (!caregiver) {
       return res.status(404).json({ error: 'Caregiver non trouvé pour ce senior' });
     }
-
     const audioUrl = req.file ? `/uploads/${req.file.filename}` : null;
-
     const log = new MedicationLog({
       medicationId,
       elderId,
@@ -46,7 +41,6 @@ router.post('/confirm-take', upload.single('audio'), async (req, res) => {
       audioUrl,
       takenAt: new Date()
     });
-
     await log.save();
     res.status(201).json(log);
   } catch (error) {
@@ -55,11 +49,10 @@ router.post('/confirm-take', upload.single('audio'), async (req, res) => {
   }
 });
 
-// Route pour récupérer l'historique des prises pour un aidant
+// Historique par caregiver
 router.get('/history/:caregiverId', async (req, res) => {
   try {
-    const { caregiverId } = req.params;
-    const history = await MedicationLog.find({ caregiverId })
+    const history = await MedicationLog.find({ caregiverId: req.params.caregiverId })
       .populate('medicationId', 'name dosage')
       .sort({ takenAt: -1 });
     res.json(history);
@@ -69,13 +62,12 @@ router.get('/history/:caregiverId', async (req, res) => {
   }
 });
 
-// Route pour récupérer l'historique des prises d'aujourd'hui pour un senior
+// Historique du jour pour un elder
 router.get('/history/elder/:elderId/today', async (req, res) => {
   try {
     const { elderId } = req.params;
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
@@ -86,54 +78,34 @@ router.get('/history/elder/:elderId/today', async (req, res) => {
 
     res.json(history);
   } catch (error) {
-    console.error('Erreur historique aujourd’hui senior:', error);
+    console.error("Erreur historique aujourd'hui senior:", error);
     res.status(500).json({ error: 'Erreur serveur interne' });
   }
 });
 
-// Add medication with optional photo
+// ── CRUD médicaments ──────────────────────────────────────────────────────────
+
+// Ajouter un médicament
 router.post('/', upload.single('photo'), async (req, res) => {
   try {
     const { name, dosage, frequency, times, days, startDate, endDate, instructions, caregiverId, elderId } = req.body;
-    
-    // Validate required fields
     if (!name || !dosage || !frequency || !startDate || !elderId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-
     let parsedTimes = [];
-    try {
-      // If times is a string (from FormData), parse it
-      parsedTimes = typeof times === 'string' ? JSON.parse(times) : times;
-    } catch (e) {
-      parsedTimes = [];
-    }
-
+    try { parsedTimes = typeof times === 'string' ? JSON.parse(times) : (times || []); } catch { parsedTimes = []; }
     let parsedDays = [];
-    try {
-      // If days is a string (from FormData), parse it
-      parsedDays = typeof days === 'string' ? JSON.parse(days) : days;
-    } catch (e) {
-      console.error("Error parsing days:", e);
-      parsedDays = [];
-    }
+    try { parsedDays = typeof days === 'string' ? JSON.parse(days) : (days || []); } catch { parsedDays = []; }
 
     const photoUrl = req.file ? `/uploads/${req.file.filename}` : null;
-
     const medication = new Medication({
-      name,
-      dosage,
-      frequency,
+      name, dosage, frequency,
       times: parsedTimes,
       days: parsedDays,
       startDate,
       endDate: endDate ? new Date(endDate) : null,
-      instructions,
-      photoUrl,
-      caregiverId,
-      elderId
+      instructions, photoUrl, caregiverId, elderId
     });
-
     await medication.save();
     res.status(201).json(medication);
   } catch (error) {
@@ -142,11 +114,10 @@ router.post('/', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Get medications for an elder
+// Récupérer les médicaments d'un elder — en DERNIER pour ne pas avaler /history/...
 router.get('/:elderId', async (req, res) => {
   try {
-    const { elderId } = req.params;
-    const medications = await Medication.find({ elderId });
+    const medications = await Medication.find({ elderId: req.params.elderId });
     res.json(medications);
   } catch (error) {
     console.error('Error fetching medications:', error);
@@ -154,40 +125,20 @@ router.get('/:elderId', async (req, res) => {
   }
 });
 
-// Update medication
+// Mettre à jour un médicament
 router.put('/:id', upload.single('photo'), async (req, res) => {
   try {
-    const { id } = req.params;
     let updateData = { ...req.body };
-
-    // Handle times array parsing
     if (updateData.times && typeof updateData.times === 'string') {
-      try {
-        updateData.times = JSON.parse(updateData.times);
-      } catch (e) {
-        updateData.times = [];
-      }
+      try { updateData.times = JSON.parse(updateData.times); } catch { updateData.times = []; }
     }
-
-    // Handle days array parsing
     if (updateData.days && typeof updateData.days === 'string') {
-      try {
-        updateData.days = JSON.parse(updateData.days);
-      } catch (e) {
-        console.error("Error parsing days update:", e);
-        updateData.days = [];
-      }
+      try { updateData.days = JSON.parse(updateData.days); } catch { updateData.days = []; }
     }
+    if (req.file) updateData.photoUrl = `/uploads/${req.file.filename}`;
 
-    // Handle photo
-    if (req.file) {
-      updateData.photoUrl = `/uploads/${req.file.filename}`;
-    }
-
-    const medication = await Medication.findByIdAndUpdate(id, updateData, { new: true });
-    if (!medication) {
-      return res.status(404).json({ error: 'Medication not found' });
-    }
+    const medication = await Medication.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!medication) return res.status(404).json({ error: 'Medication not found' });
     res.json(medication);
   } catch (error) {
     console.error('Error updating medication:', error);
@@ -195,11 +146,10 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Delete medication
+// Supprimer un médicament
 router.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await Medication.findByIdAndDelete(id);
+    await Medication.findByIdAndDelete(req.params.id);
     res.json({ message: 'Medication deleted' });
   } catch (error) {
     console.error('Error deleting medication:', error);
