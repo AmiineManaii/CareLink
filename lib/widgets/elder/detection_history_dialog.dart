@@ -10,11 +10,13 @@ import 'detection_result_dialog.dart';
 class DetectionHistoryDialog extends StatelessWidget {
   final List<Map<String, dynamic>> history;
   final Function(String) onSpeak;
+  final BuildContext context;
 
   const DetectionHistoryDialog({
     super.key,
     required this.history,
     required this.onSpeak,
+    required this.context
   });
 
   @override
@@ -119,7 +121,7 @@ class DetectionHistoryDialog extends StatelessWidget {
                           ],
                           resultText: "C'est $labelFr.",
                           onReplay: () => onSpeak("C'est $labelFr."),
-                          onDismiss: () => Navigator.pop(context),
+                          onDismiss: () => Navigator.pop(this.context),
                         ),
                       );
                     },

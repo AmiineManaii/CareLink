@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:care_link/utils/fonctions_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mailer/mailer.dart';
@@ -18,7 +19,11 @@ class SOSService {
 
     final lat = position?.latitude;
     final lng = position?.longitude;
-
+    bool hasNet = await hasInternet();
+    if (!hasNet) {
+        await sendSMSFallback(lat.toString(), lng.toString());
+    }
+    
     try {
       // 1. Envoyer l'alerte au backend
       try {

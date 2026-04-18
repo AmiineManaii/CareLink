@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:care_link/utils/fonctions_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sosPressed = false;
   Timer? _sosTimer;
   StreamSubscription<Position?>? _positionSubscription;
+  StreamSubscription<dynamic>? _fallSubscription;
 
   @override
   void initState() {
@@ -56,12 +58,17 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint('Error starting fall detection service: $e');
     }
+    _fallSubscription = fallEventsChannel.receiveBroadcastStream().listen(
+      _onFallEvent,
+      onError: (error) => debugPrint('Erreur flux chutes: $error'),
+    );
   }
 
   @override
   void dispose() {
     _sosTimer?.cancel();
     _positionSubscription?.cancel();
+    _fallSubscription?.cancel();
     super.dispose();
   }
 
@@ -77,8 +84,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleSOSRelease() {
+    showSnackBar('SOS Envoyé', context);
     _sosTimer?.cancel();
     setState(() => _sosPressed = false);
+  }
+
+  Future<void> _onFallEvent(dynamic event) async {
+    await _sosService.sendSOS(_locationService.lastKnownPosition);
   }
 
   Future<void> _logout() async {
