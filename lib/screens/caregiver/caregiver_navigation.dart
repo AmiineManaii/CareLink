@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'caregiver_home_screen.dart';
-import 'caregiver_profile_screen.dart';
+import 'profile/caregiver_profile_screen.dart';
 
 class CaregiverNavigation extends StatefulWidget {
   const CaregiverNavigation({super.key});

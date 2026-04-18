@@ -23,7 +23,7 @@ import '../../widgets/elder/detection_history_dialog.dart';
 import '../../widgets/elder/ocr_result_dialog.dart';
 import '../../widgets/elder/tts_section.dart';
 import 'package:care_link/services/api_service.dart';
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 
 class AccessibilityScreen extends StatefulWidget {
   const AccessibilityScreen({super.key});

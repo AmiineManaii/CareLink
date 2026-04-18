@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:care_link/services/api_service.dart';
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 import 'package:care_link/services/medication_reminder_service.dart';
 import 'package:care_link/models/medication.dart';
 

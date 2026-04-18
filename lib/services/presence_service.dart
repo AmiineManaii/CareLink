@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:care_link/services/api_service.dart';
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 
 class PresenceService {
   static final PresenceService _instance = PresenceService._internal();

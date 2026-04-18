@@ -4,7 +4,7 @@ import '../../widgets/common/custom_app_bar.dart';
 import '../../widgets/common/info_card.dart';
 import '../../widgets/common/contact_widgets.dart';
 import '../../models/contact.dart';
-import '../../services/auth/face_storage.dart';
+import '../../utils/face_storage.dart';
 import '../../services/api_service.dart';
 import 'dart:async';
 

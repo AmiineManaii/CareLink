@@ -1,12 +1,12 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:care_link/screens/auth/face_login_screen.dart';
-import 'package:care_link/screens/auth/face_signup_screen.dart';
+import 'package:care_link/screens/elder/auth/face_login_screen.dart';
+import 'package:care_link/screens/elder/auth/face_signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'services/auth/face_storage.dart';
-import 'screens/caregiver/caregiver_login_screen.dart';
+import 'utils/face_storage.dart';
+import 'screens/caregiver/auth/caregiver_login_screen.dart';
 import 'screens/caregiver/caregiver_navigation.dart';
 import 'screens/elder/navigation/elderly_navigation.dart';
 import 'services/permission_service.dart';

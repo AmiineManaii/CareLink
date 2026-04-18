@@ -15,7 +15,7 @@ import 'package:image/image.dart' as img;
 
 import 'package:care_link/services/auth/face_detector_service.dart';
 import 'package:care_link/widgets/auth/face_painter.dart';
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:care_link/screens/elder/navigation/elderly_navigation.dart';
 import 'package:care_link/screens/elder/elder_profile_completion_screen.dart';

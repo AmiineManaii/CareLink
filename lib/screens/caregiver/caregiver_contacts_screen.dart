@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../../../services/auth/face_storage.dart';
+import '../../utils/face_storage.dart';
 import '../../../services/api_service.dart';
 
 class CaregiverContactsScreen extends StatefulWidget {

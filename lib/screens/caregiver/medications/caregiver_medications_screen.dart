@@ -1,7 +1,7 @@
 import 'package:care_link/models/medication.dart';
 import 'package:care_link/screens/caregiver/medications/add_medication_screen.dart';
 import 'package:care_link/screens/caregiver/medications/caregiver_medication_history_screen.dart';
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:care_link/widgets/common/custom_app_bar.dart';
 import 'package:flutter/material.dart';

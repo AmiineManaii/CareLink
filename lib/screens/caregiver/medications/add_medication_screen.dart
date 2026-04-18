@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 import 'package:care_link/models/medication.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:care_link/widgets/common/custom_app_bar.dart';

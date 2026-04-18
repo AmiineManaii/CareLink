@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:care_link/services/auth/face_recognition_service.dart';
 import 'package:care_link/utils/face_utils.dart';
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

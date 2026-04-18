@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:care_link/widgets/common/quick_action_card.dart';
-import 'package:care_link/services/auth/face_storage.dart';
+import 'package:care_link/utils/face_storage.dart';
 import 'package:care_link/services/api_service.dart';
 import 'package:care_link/services/presence_service.dart';
 import 'medications/caregiver_medications_screen.dart';
 import 'caregiver_contacts_screen.dart';
 import 'caregiver_alerts_screen.dart';
 import 'caregiver_tasks_screen.dart';
-import 'elder_profile_edit_screen.dart';
+import 'profile/elder_profile_edit_screen.dart';
 import 'dart:async';
 
 class CaregiverHomeScreen extends StatefulWidget {

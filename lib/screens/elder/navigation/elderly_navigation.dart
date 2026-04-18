@@ -6,7 +6,7 @@ import 'package:care_link/screens/elder/home_screen.dart';
 import 'package:care_link/screens/elder/medications_screen.dart';
 import 'package:care_link/screens/elder/contacts_screen.dart';
 import 'package:care_link/screens/elder/accessibility_screen.dart';
-import 'package:care_link/screens/elder/navigation/color_memory_game.dart';
+import 'package:care_link/screens/elder/color_memory_game.dart';
 import 'package:care_link/screens/elder/alerts_screen.dart';
 import 'package:care_link/screens/elder/daily_tasks_screen.dart';
 
