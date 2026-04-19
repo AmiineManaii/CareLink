@@ -40,9 +40,7 @@ class AIService {
         ],
         stream: false,
       });
-      if (response.data.status !== "success") {
-        throw { status: 500, message: response.data.message || "Erreur interne de l'IA locale." };
-      }
+
       const aiResponse = response.data.message.content.trim();
       
       const io = socketService.getIO();
@@ -54,7 +52,6 @@ class AIService {
       }
     } catch (error) {
       console.error("Erreur lors de l'appel à Ollama (background):", error.message);
-      
       const io = socketService.getIO();
       if (io && elderId) {
         io.to(`elder:${elderId}`).emit("objectDetectionError", {
@@ -62,7 +59,6 @@ class AIService {
           details: error.message,
         });
       }
-      throw {status: 500, message: error.message || "server_error"};
     }
   }
 }
