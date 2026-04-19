@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -32,6 +33,7 @@ class ApiService {
           body: jsonEncode({'embedding': embedding}),
         )
         .timeout(const Duration(seconds: 10));
+    //debugPrint('DEBUG ${resp.body} $baseUrl');
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
@@ -109,7 +111,10 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> analyzeImage(String base64Image, String elderId) async {
+  Future<Map<String, dynamic>> analyzeImage(
+    String base64Image,
+    String elderId,
+  ) async {
     final resp = await http.post(
       Uri.parse('$baseUrl/ai/analyze-image'),
       headers: {'Content-Type': 'application/json'},
@@ -178,7 +183,8 @@ class ApiService {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
       throw Exception(
-          'Failed to load caregiver profile: Status ${resp.statusCode}, Body: ${resp.body}');
+        'Failed to load caregiver profile: Status ${resp.statusCode}, Body: ${resp.body}',
+      );
     }
   }
 
@@ -279,7 +285,10 @@ class ApiService {
     }
   }
 
-  Future<void> addMedication(Map<String, dynamic> medicationData, {File? image}) async {
+  Future<void> addMedication(
+    Map<String, dynamic> medicationData, {
+    File? image,
+  }) async {
     final uri = Uri.parse('$baseUrl/medications');
     final request = http.MultipartRequest('POST', uri);
     medicationData.forEach((key, value) {
@@ -301,7 +310,11 @@ class ApiService {
     }
   }
 
-  Future<void> updateMedication(String id, Map<String, dynamic> medicationData, {File? image}) async {
+  Future<void> updateMedication(
+    String id,
+    Map<String, dynamic> medicationData, {
+    File? image,
+  }) async {
     final uri = Uri.parse('$baseUrl/medications/$id');
     final request = http.MultipartRequest('PUT', uri);
     medicationData.forEach((key, value) {
@@ -347,7 +360,9 @@ class ApiService {
     request.fields['status'] = status;
     if (note != null) request.fields['note'] = note;
     if (audioFile != null) {
-      request.files.add(await http.MultipartFile.fromPath('audio', audioFile.path));
+      request.files.add(
+        await http.MultipartFile.fromPath('audio', audioFile.path),
+      );
     }
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
@@ -415,7 +430,10 @@ class ApiService {
     return data['tasks'] as List<dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateTask(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateTask(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     final resp = await http.put(
       Uri.parse('$baseUrl/tasks/$id'),
       headers: {'Content-Type': 'application/json'},
@@ -445,7 +463,10 @@ class ApiService {
     }
   }
 
-  Future<void> addContact(Map<String, dynamic> contactData, {File? image}) async {
+  Future<void> addContact(
+    Map<String, dynamic> contactData, {
+    File? image,
+  }) async {
     final uri = Uri.parse('$baseUrl/contacts');
     final request = http.MultipartRequest('POST', uri);
     contactData.forEach((key, value) {

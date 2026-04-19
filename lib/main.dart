@@ -15,6 +15,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await dotenv.load(fileName: "assets/.env");
+    String baseUrl = dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000';
+    debugPrint('DEBUG $baseUrl');
   } catch (e) {
     debugPrint("dotenv load error: $e");
   }

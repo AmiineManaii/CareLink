@@ -23,10 +23,10 @@ router.post('/confirm-take', upload.single('audio'), async (req, res) => {
       return res.status(404).json({ error: 'Caregiver non trouvé pour ce senior' });
     }
 
-    // ✅ Upload audio vers Cloudinary si fourni
+    // ✅ Upload audio vers Cloudinary avec resource_type 'auto' pour les fichiers audio
     let audioUrl = null;
     if (req.file) {
-      audioUrl = await uploadToCloudinary(req.file.buffer, 'medication-audio');
+      audioUrl = await uploadToCloudinary(req.file.buffer, 'medication-audio', 'auto');
     }
 
     const log = new MedicationLog({
