@@ -82,7 +82,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       if (event['type'] == 'objectDetectionResult') {
         _handleDetectionResultEvent(event['data']);
       } else if (event['type'] == 'objectDetectionError') {
-        *
+        
         if (mounted) {
           showSnackBar(
             "Erreur d'analyse IA : ${event['data']['error']}",
@@ -100,7 +100,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
     if (aiResult.isNotEmpty && mounted) {
       final String resultText = "C'est $aiResult.";
       _saveToHistory(aiResult.toLowerCase(), aiResult, imageBase64);
-      _showResultToast(resultText, aiResult, imageBase64);
+      _showResultToast(resultText, aiResult, imageBase64, true);
     }
   }
 
@@ -267,6 +267,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
     String resultText,
     String aiResult,
     String imageBase64,
+    bool isOllama,
   ) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -287,14 +288,14 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         action: SnackBarAction(
           label: "VOIR",
           textColor: Colors.white,
-          onPressed: () => _showDetectionResult(aiResult, imageBase64),
+          onPressed: () => _showDetectionResult(aiResult, imageBase64, isOllama),
         ),
       ),
     );
     _flutterTts.speak(resultText);
   }
 
-  void _showDetectionResult(String aiResult, String imageBase64) async {
+  void _showDetectionResult(String aiResult, String imageBase64, bool isOllama) async {
     final String fr = LabelTranslations.translate(aiResult.toLowerCase());
     final String resultText = "C'est $fr.";
     if (!mounted) return;
@@ -310,8 +311,8 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
           {
             "label": aiResult.toLowerCase(),
             "labelFr": fr,
-            "confidence": 1.0,
-            "source": "ollama",
+            "confidence": isOllama ? 1 : 0.0,
+            "source": isOllama ? "ollama" : "other",
           },
         ],
         resultText: resultText,
@@ -424,7 +425,6 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         resultText,
       );
       
-      _showResultToast(resultText,resultText, file.path);
     } catch (e) {
       setState(() => _isObjectScanning = false);
       showSnackBar('Erreur : $e', context);

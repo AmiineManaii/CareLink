@@ -161,6 +161,11 @@ class DetectionResultDialog extends StatelessWidget {
                     sourceColor = Colors.deepPurple;
                     sourceLabel = "Ollama";
                     break;
+                  case "tflite":
+                    sourceIcon = Icons.psychology;
+                    sourceColor = Colors.teal;
+                    sourceLabel = "TFLite";
+                    break;
                   case "mlkit":
                     sourceIcon = Icons.blur_on;
                     sourceColor = Colors.orange;
