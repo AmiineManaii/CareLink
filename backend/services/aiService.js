@@ -42,7 +42,7 @@ class AIService {
       });
 
       const aiResponse = response.data.message.content.trim();
-      
+      if (!aiResponse) throw { status: 500, message: "Erreur interne de l'IA locale." };
       const io = socketService.getIO();
       if (io && elderId) {
         io.to(`elder:${elderId}`).emit("objectDetectionResult", {
