@@ -40,7 +40,9 @@ class AIService {
         ],
         stream: false,
       });
-
+      if (response.data.status !== "success") {
+        throw { status: 500, message: response.data.message || "Erreur interne de l'IA locale." };
+      }
       const aiResponse = response.data.message.content.trim();
       
       const io = socketService.getIO();

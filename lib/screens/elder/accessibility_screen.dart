@@ -82,6 +82,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       if (event['type'] == 'objectDetectionResult') {
         _handleDetectionResultEvent(event['data']);
       } else if (event['type'] == 'objectDetectionError') {
+
         if (mounted) {
           showSnackBar(
             "Erreur d'analyse IA : ${event['data']['error']}",
@@ -179,9 +180,11 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
   /// Retourne true si la requête a bien été envoyée.
   Future<bool> _sendImageToBackend(XFile file, String elderId) async {
     try {
+      debugPrint("DEBUG: Envoi image à backend Ollama");
       final bytes = await file.readAsBytes();
       final String base64Image = base64Encode(bytes);
       await ApiService().analyzeImage(base64Image, elderId);
+      debugPrint("DEBUG: ApiService().analyzeImage");
       return true;
     } catch (e) {
       debugPrint('Erreur IA locale, repli sur TFLite: $e');
@@ -404,6 +407,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         showSnackBar('Analyse d\'image en cours...', context);
         return;
       }
+      debugPrint("DEBUG: il va travailler avec TFLite");
 
       // 2. Fallback TFLite
       final rawResults = await _detectWithTFLite(file);
@@ -420,6 +424,8 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         withFr,
         resultText,
       );
+      
+      _showResultToast(resultText,resultText, file.path);
     } catch (e) {
       setState(() => _isObjectScanning = false);
       showSnackBar('Erreur : $e', context);

@@ -120,10 +120,12 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'image': base64Image, 'elderId': elderId}),
     );
+    debugPrint("DEBUG: ${resp.statusCode} ${resp.body}");
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } else {
       final errorData = jsonDecode(resp.body);
+      debugPrint("DEBUG: $errorData");
       throw Exception(errorData['error'] ?? 'Failed to analyze image');
     }
   }
