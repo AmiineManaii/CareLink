@@ -54,6 +54,7 @@ class AIService {
       }
     } catch (error) {
       console.error("Erreur lors de l'appel à Ollama (background):", error.message);
+      
       const io = socketService.getIO();
       if (io && elderId) {
         io.to(`elder:${elderId}`).emit("objectDetectionError", {
@@ -61,6 +62,7 @@ class AIService {
           details: error.message,
         });
       }
+      throw {status: 500, message: error.message || "server_error"};
     }
   }
 }
