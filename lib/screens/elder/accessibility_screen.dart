@@ -82,7 +82,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       if (event['type'] == 'objectDetectionResult') {
         _handleDetectionResultEvent(event['data']);
       } else if (event['type'] == 'objectDetectionError') {
-
+        *
         if (mounted) {
           showSnackBar(
             "Erreur d'analyse IA : ${event['data']['error']}",
@@ -184,7 +184,6 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
       final bytes = await file.readAsBytes();
       final String base64Image = base64Encode(bytes);
       await ApiService().analyzeImage(base64Image, elderId);
-      debugPrint("DEBUG: ApiService().analyzeImage");
       return true;
     } catch (e) {
       debugPrint('Erreur IA locale, repli sur TFLite: $e');
@@ -193,7 +192,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
   }
 
   // ── Object detection — fallback TFLite ───────────────────────
-
+  
   /// Détecte les objets avec TFLite et retourne les résultats bruts.
   Future<List<Map<String, dynamic>>> _detectWithTFLite(XFile file) async {
     final mlObjects = await _mlService.detectObjects(file.path);
@@ -407,7 +406,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
         showSnackBar('Analyse d\'image en cours...', context);
         return;
       }
-      debugPrint("DEBUG: il va travailler avec TFLite");
+      //debugPrint("DEBUG: il va travailler avec TFLite");
 
       // 2. Fallback TFLite
       final rawResults = await _detectWithTFLite(file);

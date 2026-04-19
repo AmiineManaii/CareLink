@@ -6,9 +6,15 @@ class AIService {
     if (!image) {
       throw { status: 400, message: "L'image est requise (base64)." };
     }
+    if(!await await axios.get("http://localhost:11434/api/tags")){
+      throw { status: 500, message: "Ollama n'est pas disponible." };
+    }
+
+
 
     // Traitement en arrière-plan
     this.processImageInBackground(image, elderId);
+    
 
     return { status: "processing", message: "L'analyse a commencé." };
   }
@@ -42,7 +48,6 @@ class AIService {
       });
 
       const aiResponse = response.data.message.content.trim();
-      if (!aiResponse) throw { status: 500, message: "Erreur interne de l'IA locale." };
       const io = socketService.getIO();
       if (io && elderId) {
         io.to(`elder:${elderId}`).emit("objectDetectionResult", {
