@@ -201,7 +201,7 @@ class _CaregiverMedicationsScreenState
                     image: med.photoUrl != null
                         ? DecorationImage(
                             image: NetworkImage(
-                              '${ApiService().baseUrl}${med.photoUrl}',
+                              '${med.photoUrl}',
                             ),
                             fit: BoxFit.cover,
                           )

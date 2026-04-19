@@ -349,7 +349,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   image: med.photoUrl != null
                       ? DecorationImage(
                           image: NetworkImage(
-                            '${ApiService().baseUrl}${med.photoUrl}',
+                            '${med.photoUrl}',
                           ),
                           fit: BoxFit.cover,
                         )
@@ -464,7 +464,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   image: med.photoUrl != null
                       ? DecorationImage(
                           image: NetworkImage(
-                            '${ApiService().baseUrl}${med.photoUrl}',
+                            '${med.photoUrl}',
                           ),
                           fit: BoxFit.cover,
                         )
