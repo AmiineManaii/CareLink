@@ -1,25 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const Contact = require('../models/contact');
 const multer = require('multer');
-const path = require('path');
+const Contact = require('../models/contact');
+const uploadToCloudinary = require('../utils/uploadToCloudinary');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads'));
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.fieldname + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ storage: storage });
+// ✅ memoryStorage — pas de fichiers locaux
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Create contact
 router.post('/', upload.single('photo'), async (req, res) => {
   try {
     const { name, phone, relation, elderId, caregiverId } = req.body;
-    const photoUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    // ✅ Upload vers Cloudinary si une photo est fournie
+    let photoUrl = null;
+    if (req.file) {
+      photoUrl = await uploadToCloudinary(req.file.buffer, 'contacts');
+    }
 
     const contact = new Contact({
       name,
@@ -27,7 +24,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
       relation,
       elderId,
       caregiverId,
-      photoUrl
+      photoUrl,
     });
 
     await contact.save();

@@ -1,4 +1,5 @@
 const elderService = require("../services/elderService");
+const uploadToCloudinary = require("../utils/uploadToCloudinary");
 
 class ElderController {
   async signupFace(req, res) {
@@ -53,7 +54,9 @@ class ElderController {
         return res.status(400).json({ error: "profile JSON invalide" });
       }
       if (req.file) {
-        profile.photoUrl = `/uploads/${req.file.filename}`;
+        // ✅ Passe req.file.buffer (memoryStorage), pas req.file.path
+        const url = await uploadToCloudinary(req.file.buffer, "elders");
+        profile.photoUrl = url;
       }
       const result = await elderService.updateProfile(elderId, profile);
       res.json(result);

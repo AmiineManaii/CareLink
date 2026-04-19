@@ -1,22 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
 const Medication = require('../models/medication');
 const MedicationLog = require('../models/medicationLog');
 const Caregiver = require('../models/caregiver');
+const uploadToCloudinary = require('../utils/uploadToCloudinary');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '..', 'uploads');
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || (file.fieldname === 'audio' ? '.m4a' : '.jpg');
-    cb(null, Date.now() + '-' + file.fieldname + ext);
-  }
-});
-const upload = multer({ storage });
+// ✅ memoryStorage — pas de fichiers locaux
+const upload = multer({ storage: multer.memoryStorage() });
 
 // ── Routes spécifiques EN PREMIER (avant /:elderId) ──────────────────────────
 
@@ -31,7 +22,13 @@ router.post('/confirm-take', upload.single('audio'), async (req, res) => {
     if (!caregiver) {
       return res.status(404).json({ error: 'Caregiver non trouvé pour ce senior' });
     }
-    const audioUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    // ✅ Upload audio vers Cloudinary si fourni
+    let audioUrl = null;
+    if (req.file) {
+      audioUrl = await uploadToCloudinary(req.file.buffer, 'medication-audio');
+    }
+
     const log = new MedicationLog({
       medicationId,
       elderId,
@@ -39,7 +36,7 @@ router.post('/confirm-take', upload.single('audio'), async (req, res) => {
       status: status || 'taken',
       note,
       audioUrl,
-      takenAt: new Date()
+      takenAt: new Date(),
     });
     await log.save();
     res.status(201).json(log);
@@ -73,7 +70,7 @@ router.get('/history/elder/:elderId/today', async (req, res) => {
 
     const history = await MedicationLog.find({
       elderId,
-      takenAt: { $gte: startOfDay, $lte: endOfDay }
+      takenAt: { $gte: startOfDay, $lte: endOfDay },
     }).populate('medicationId', 'name');
 
     res.json(history);
@@ -92,19 +89,28 @@ router.post('/', upload.single('photo'), async (req, res) => {
     if (!name || !dosage || !frequency || !startDate || !elderId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
     let parsedTimes = [];
     try { parsedTimes = typeof times === 'string' ? JSON.parse(times) : (times || []); } catch { parsedTimes = []; }
     let parsedDays = [];
     try { parsedDays = typeof days === 'string' ? JSON.parse(days) : (days || []); } catch { parsedDays = []; }
 
-    const photoUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    // ✅ Upload photo vers Cloudinary si fournie
+    let photoUrl = null;
+    if (req.file) {
+      photoUrl = await uploadToCloudinary(req.file.buffer, 'medications');
+    }
+
     const medication = new Medication({
       name, dosage, frequency,
       times: parsedTimes,
       days: parsedDays,
       startDate,
       endDate: endDate ? new Date(endDate) : null,
-      instructions, photoUrl, caregiverId, elderId
+      instructions,
+      photoUrl,
+      caregiverId,
+      elderId,
     });
     await medication.save();
     res.status(201).json(medication);
@@ -114,7 +120,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Récupérer les médicaments d'un elder — en DERNIER pour ne pas avaler /history/...
+// Récupérer les médicaments d'un elder
 router.get('/:elderId', async (req, res) => {
   try {
     const medications = await Medication.find({ elderId: req.params.elderId });
@@ -135,7 +141,11 @@ router.put('/:id', upload.single('photo'), async (req, res) => {
     if (updateData.days && typeof updateData.days === 'string') {
       try { updateData.days = JSON.parse(updateData.days); } catch { updateData.days = []; }
     }
-    if (req.file) updateData.photoUrl = `/uploads/${req.file.filename}`;
+
+    // ✅ Upload photo vers Cloudinary si fournie
+    if (req.file) {
+      updateData.photoUrl = await uploadToCloudinary(req.file.buffer, 'medications');
+    }
 
     const medication = await Medication.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!medication) return res.status(404).json({ error: 'Medication not found' });
