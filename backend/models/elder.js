@@ -9,6 +9,8 @@ const ElderSchema = new mongoose.Schema(
       phone: { type: String }, // compat
       gender: { type: String },
       age: { type: Number },
+      email: { type: String },
+      photoUrl: { type: String },
     },
     relationCode: { type: String, unique: true, index: true },
     embeddings: {

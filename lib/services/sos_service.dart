@@ -21,9 +21,9 @@ class SOSService {
     final lng = position?.longitude;
     bool hasNet = await hasInternet();
     if (!hasNet) {
-        await sendSMSFallback(lat.toString(), lng.toString());
+      await sendSMSFallback(lat.toString(), lng.toString());
     }
-    
+
     try {
       // 1. Envoyer l'alerte au backend
       try {
