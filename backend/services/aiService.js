@@ -6,7 +6,7 @@ class AIService {
     if (!image) {
       throw { status: 400, message: "L'image est requise (base64)." };
     }
-    if(!await axios.get(process.env.OLLAMA_URL)){
+    if(!await axios.get(process.env.OLLAMA_URL+"/tags")){
       throw { status: 500, message: "Ollama n'est pas disponible." };
     }
 
@@ -21,7 +21,7 @@ class AIService {
 
   async processImageInBackground(image, elderId) {
     try {
-      const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434/api/chat";
+      const ollamaUrl = process.env.OLLAMA_URL+"/chat";
       const response = await axios.post(ollamaUrl, {
         model: "qwen3-vl:2b-instruct-q4_K_M",
         messages: [
