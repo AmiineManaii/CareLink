@@ -176,24 +176,25 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         final isTakenA = takenTodayKeys.contains(a['key']);
         final isTakenB = takenTodayKeys.contains(b['key']);
 
-        // 1. Les "pris" d'abord (historique), les "non pris" en bas
+        // 1. Les "non pris" d'abord, les "pris" tout en bas
         if (isTakenA != isTakenB) {
-          return isTakenA ? -1 : 1;
+          return isTakenA ? 1 : -1;
         }
 
-        // 2. Dans chaque groupe, "à venir" d'abord, "passé" ensuite
+        // Si on est dans le même groupe (soit les deux non pris, soit les deux pris)
         final isUpcomingA = timeA.compareTo(nowStr) >= 0;
         final isUpcomingB = timeB.compareTo(nowStr) >= 0;
 
-        if (isUpcomingA != isUpcomingB) {
-          return isUpcomingA ? -1 : 1;
-        }
-
-        // 3. Le plus proche de l'heure actuelle d'abord
-        if (isUpcomingA) {
-          return timeA.compareTo(timeB); // Chronologique pour le futur
+        if (!isTakenA) {
+          // 2. Pour les NON PRIS : "à venir" d'abord, "passé (en retard)" ensuite
+          if (isUpcomingA != isUpcomingB) {
+            return isUpcomingA ? -1 : 1;
+          }
+          // Dans le même sous-groupe (ex: deux à venir), tri chronologique
+          return timeA.compareTo(timeB);
         } else {
-          return timeB.compareTo(timeA); // Plus récent d'abord pour le passé
+          // 3. Pour les PRIS : tri décroissant (le plus récent en haut du bloc "pris")
+          return timeB.compareTo(timeA);
         }
       });
 
