@@ -4,7 +4,7 @@ const multer = require('multer');
 const Medication = require('../models/medication');
 const MedicationLog = require('../models/medicationLog');
 const Caregiver = require('../models/caregiver');
-const uploadToCloudinary = require('../utils/uploadToCloudinary');
+const uploadToCloudinary = require('../config/uploadToCloudinary');
 
 // ✅ memoryStorage — pas de fichiers locaux
 const upload = multer({ storage: multer.memoryStorage() });

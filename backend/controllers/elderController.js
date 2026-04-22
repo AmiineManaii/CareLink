@@ -1,5 +1,5 @@
 const elderService = require("../services/elderService");
-const uploadToCloudinary = require("../utils/uploadToCloudinary");
+const uploadToCloudinary = require("../config/uploadToCloudinary");
 
 class ElderController {
   async signupFace(req, res) {

@@ -3,6 +3,7 @@ const router = express.Router();
 const Alert = require("../models/alert");
 const Caregiver = require("../models/caregiver");
 const Elder = require("../models/elder");
+const { SendAlertNotif } = require("../services/socketService");
 
 // Route générique utilisée par Flutter (createAlert)
 router.post("/create", async (req, res) => {
@@ -25,6 +26,7 @@ router.post("/create", async (req, res) => {
       latitude: latitude != null ? parseFloat(latitude) : undefined,
       longitude: longitude != null ? parseFloat(longitude) : undefined,
     });
+    SendAlertNotif(caregiver._id,alert,elderId);
 
     res.json({ ok: true, alertId: alert._id });
   } catch (e) {
@@ -66,6 +68,7 @@ router.post("/sos", async (req, res) => {
       latitude: latitude != null ? parseFloat(latitude) : undefined,
       longitude: longitude != null ? parseFloat(longitude) : undefined,
     });
+    SendAlertNotif(caregiver._id,alert,elderId);
 
     res.json({ ok: true, alertId: alert._id });
   } catch (e) {

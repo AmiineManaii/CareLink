@@ -10,6 +10,7 @@ import 'caregiver_alerts_screen.dart';
 import 'caregiver_tasks_screen.dart';
 import 'profile/elder_profile_edit_screen.dart';
 import 'dart:async';
+import 'package:flutter/services.dart';
 
 class CaregiverHomeScreen extends StatefulWidget {
   const CaregiverHomeScreen({super.key});
@@ -21,6 +22,7 @@ class CaregiverHomeScreen extends StatefulWidget {
 class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
   final PresenceService _presenceService = PresenceService();
   final ApiService _apiService = ApiService();
+  static const MethodChannel _channel = MethodChannel('fall_channel');
 
   Map<String, dynamic>? _elderProfile;
   bool _loading = false;
@@ -30,6 +32,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
   Timer? _statusTimer;
   String? _statusError;
   StreamSubscription? _presenceSubscription;
+  String? _urlPhoto;
 
   @override
   void initState() {
@@ -37,8 +40,21 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
     _loadElderInfo();
     _presenceService.initSocket('aidant');
 
-    _presenceSubscription = _presenceService.presenceStream.listen((data) {
+    _presenceSubscription = _presenceService.presenceStream.listen((data) async {
       if (!mounted) return;
+      if (data['type'] == 'sosAlert') {
+        try {
+          await _channel.invokeMethod('showSOSNotification', {
+            'alertId': data['alertId'],
+            'message': data['message'],
+            'latitude': data['latitude'],
+            'longitude': data['longitude'],
+          });
+        } catch (e) {
+          debugPrint('Error showing SOS notification: $e');
+        }
+        return;
+      }
       setState(() {
         _elderOnline = data['online'] == true;
         final last = data['lastActiveAt'];
@@ -72,6 +88,7 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
       final data = await _apiService.getElderProfile(id);
       if (mounted) {
         setState(() {
+          _urlPhoto = data['profile']['photoUrl'];
           _elderProfile = data['profile'];
           _elderOnline = data['online'] == true;
           final last = data['lastActiveAt'];
@@ -188,7 +205,9 @@ class _CaregiverHomeScreenState extends State<CaregiverHomeScreen> {
         CircleAvatar(
           radius: 30,
           backgroundColor: Colors.blue[100],
-          child: const Icon(Icons.person, size: 40, color: Colors.blue),
+          child: _urlPhoto != null
+              ? Image.network(_urlPhoto!)
+              : const Icon(Icons.person, size: 40, color: Colors.blue),
         ),
         Positioned(
           right: 0,

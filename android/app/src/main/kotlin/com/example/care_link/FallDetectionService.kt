@@ -250,7 +250,7 @@ class FallDetectionService : Service(), SensorEventListener {
                 for (i in 0 until 6) {
                     handler.postDelayed({
                         try {
-                            cameraManager.setTorchMode(cameraId, i % 2 == 0)
+                            cameraManager.setTorchMode(cameraId, i % 1 == 0)
                         } catch (e: Exception) {
                             android.util.Log.e("DEBUG_SERVICE", "Flash error: ${e.message}")
                         }
@@ -448,17 +448,17 @@ class FallDetectionService : Service(), SensorEventListener {
                 this, 9999, launchIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
-
+        val sosSoundUri = android.net.Uri.parse("android.resource://$packageName/${R.raw.sos}")
         // 3. Afficher la notification avec compte à rebours et bouton Annuler
         val notificationBuilder = NotificationCompat.Builder(this, "fall_alert_channel")
             .setContentTitle("CHUTE DÉTECTÉE !")
-            .setContentText("Envoi SOS dans 30s... APPUYEZ POUR ANNULER")
+            .setContentText("Envoi SOS dans 10s... APPUYEZ POUR ANNULER")
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setSound(Settings.System.DEFAULT_ALARM_ALERT_URI)
+            .setSound(sosSoundUri)
             .setVibrate(longArrayOf(0, 500, 200, 500))
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "ANNULER LE SOS", cancelPendingIntent)
 

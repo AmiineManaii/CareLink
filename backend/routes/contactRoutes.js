@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const Contact = require('../models/contact');
-const uploadToCloudinary = require('../utils/uploadToCloudinary');
+const uploadToCloudinary = require('../config/uploadToCloudinary');
 
 // ✅ memoryStorage — pas de fichiers locaux
 const upload = multer({ storage: multer.memoryStorage() });

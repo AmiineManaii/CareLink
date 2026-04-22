@@ -187,4 +187,19 @@ const getIO = () => {
   return io;
 };
 
-module.exports = { init, getIO };
+function SendAlertNotif(caregiverId,alert,elderId){
+  const io = getIO();
+    if (io) {
+      io.to(`caregiver:${caregiverId}`).emit("sosAlert", {
+        alertId: alert._id.toString(),
+        elderId: elderId,
+        type: alert.type,
+        message: alert.message,
+        latitude: alert.latitude,
+        longitude: alert.longitude,
+        createdAt: alert.createdAt.toISOString(),
+      });
+    }
+}
+
+module.exports = { init, getIO,SendAlertNotif };

@@ -115,6 +115,62 @@ class MainActivity : FlutterActivity() {
             android.util.Log.e("DEBUG_SERVICE", "Erreur lors de l'envoi du SMS: ${e.message}")
         }
     }
+    private fun showSOSNotification(alertId: String, message: String, latitude: Double?, longitude: Double?) {
+        try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = android.app.NotificationChannel(
+                    "sos_channel",
+                    "Alertes SOS",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications d'alertes SOS"
+                    enableVibration(true)
+                    enableLights(true)
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("alertId", alertId)
+                putExtra("isSOS", true)
+            }
+            val pendingIntent = android.app.PendingIntent.getActivity(
+                this,
+                alertId.hashCode(),
+                intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            val builder = android.app.Notification.Builder(this, "sos_channel")
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("⚠️ ALERTE SOS")
+                .setContentText(message)
+                .setStyle(android.app.Notification.BigTextStyle().bigText(message))
+                .setPriority(android.app.Notification.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setVibrate(longArrayOf(0, 500, 200, 500))
+            if (latitude != null && longitude != null) {
+                val googleMapsUrl = "https://maps.google.com/?q=$latitude,$longitude"
+                val mapIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(googleMapsUrl))
+                val mapPendingIntent = android.app.PendingIntent.getActivity(
+                    this,
+                    0,
+                    mapIntent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.addAction(
+                    android.R.drawable.ic_menu_mapmode,
+                    "Voir sur la carte",
+                    mapPendingIntent
+                )
+            }
+            notificationManager.notify(alertId.hashCode(), builder.build())
+            android.util.Log.d("DEBUG_SERVICE", "Notification SOS affichée: $message")
+        } catch (e: Exception) {
+            android.util.Log.e("DEBUG_SERVICE", "Erreur lors de l'affichage de la notification SOS: ${e.message}")
+        }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -204,6 +260,17 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("INVALID_ARGS", "Missing phone or message", null)
                     }
+                } else if (call.method == "showSOSNotification") {
+                    val alertId = call.argument<String>("alertId")
+                    val message = call.argument<String>("message")
+                    val latitude = call.argument<Double>("latitude")
+                    val longitude = call.argument<Double>("longitude")
+                    if (alertId != null && message != null) {
+                        showSOSNotification(alertId, message, latitude, longitude)
+                        result.success("SOS Notification shown")
+                    } else {
+                        result.error("INVALID_ARGS", "Missing alertId or message", null)
+                    } 
                 } else {
                     result.notImplemented()
                 }

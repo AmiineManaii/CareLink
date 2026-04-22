@@ -68,6 +68,17 @@ class PresenceService {
         _socket!.on('elderPresence', (data) {
           _presenceController.add(data);
         });
+        _socket!.on('sosAlert', (data) {
+          _presenceController.add({
+            'type': 'sosAlert',
+            'alertId': data['alertId'],
+            'elderId': data['elderId'],
+            'message': data['message'],
+            'latitude': data['latitude'],
+            'longitude': data['longitude'],
+            'createdAt': data['createdAt'],
+          });
+        });
       } else {
         _socket!.on('objectDetectionResult', (data) {
           _presenceController.add({
