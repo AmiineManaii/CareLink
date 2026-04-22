@@ -6,7 +6,7 @@ class AIService {
     if (!image) {
       throw { status: 400, message: "L'image est requise (base64)." };
     }
-    if(!await axios.get("http://localhost:11434/api/tags")){
+    if(!await axios.get(process.env.OLLAMA_URL)){
       throw { status: 500, message: "Ollama n'est pas disponible." };
     }
 
