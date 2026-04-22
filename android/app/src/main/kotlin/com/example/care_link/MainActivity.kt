@@ -263,8 +263,22 @@ class MainActivity : FlutterActivity() {
                 } else if (call.method == "showSOSNotification") {
                     val alertId = call.argument<String>("alertId")
                     val message = call.argument<String>("message")
-                    val latitude = call.argument<Double>("latitude")
-                    val longitude = call.argument<Double>("longitude")
+                    
+                    // Récupération sécurisée de la latitude et longitude (peut être String ou Double depuis Flutter)
+                    val latRaw = call.argument<Any>("latitude")
+                    val lonRaw = call.argument<Any>("longitude")
+                    
+                    val latitude = when (latRaw) {
+                        is Double -> latRaw
+                        is String -> latRaw.toDoubleOrNull()
+                        else -> null
+                    }
+                    val longitude = when (lonRaw) {
+                        is Double -> lonRaw
+                        is String -> lonRaw.toDoubleOrNull()
+                        else -> null
+                    }
+                    
                     if (alertId != null && message != null) {
                         showSOSNotification(alertId, message, latitude, longitude)
                         result.success("SOS Notification shown")

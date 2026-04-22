@@ -14,7 +14,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Confirmer la prise d'un médicament
 router.post('/confirm-take', upload.single('audio'), async (req, res) => {
   try {
-    const { medicationId, elderId, note, status } = req.body;
+    const { medicationId, elderId, note, status, scheduledTime } = req.body;
     if (!medicationId || !elderId) {
       return res.status(400).json({ error: 'medicationId et elderId requis' });
     }
@@ -36,6 +36,7 @@ router.post('/confirm-take', upload.single('audio'), async (req, res) => {
       status: status || 'taken',
       note,
       audioUrl,
+      scheduledTime,
       takenAt: new Date(),
     });
     await log.save();

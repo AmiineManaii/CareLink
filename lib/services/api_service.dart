@@ -351,6 +351,7 @@ class ApiService {
   Future<void> confirmMedicationTake({
     required String medicationId,
     required String elderId,
+    String? scheduledTime,
     String? note,
     File? audioFile,
     String status = 'taken',
@@ -360,6 +361,7 @@ class ApiService {
     request.fields['medicationId'] = medicationId;
     request.fields['elderId'] = elderId;
     request.fields['status'] = status;
+    if (scheduledTime != null) request.fields['scheduledTime'] = scheduledTime;
     if (note != null) request.fields['note'] = note;
     if (audioFile != null) {
       request.files.add(

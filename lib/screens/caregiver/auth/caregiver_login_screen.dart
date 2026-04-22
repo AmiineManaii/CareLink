@@ -324,49 +324,53 @@ class _CaregiverLoginScreenState extends State<CaregiverLoginScreen> {
                 color: Colors.white,
               ),
             )
-          : const Text(
-              'Se connecter',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+          : FittedBox(
+            child: const Text(
+                'Se connecter',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
-            ),
+          ),
     );
   }
 
   Widget _buildSignUpLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'Pas encore de compte ? ',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CaregiverSignupScreen(),
-              ),
-            );
-          },
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    return FittedBox(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Pas encore de compte ? ',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
           ),
-          child: Text(
-            'Créer un compte',
-            style: TextStyle(
-              color: Theme.of(context).primaryColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CaregiverSignupScreen(),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Créer un compte',
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

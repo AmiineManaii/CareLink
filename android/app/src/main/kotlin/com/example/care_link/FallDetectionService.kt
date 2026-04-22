@@ -448,7 +448,7 @@ class FallDetectionService : Service(), SensorEventListener {
                 this, 9999, launchIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
-        val sosSoundUri = android.net.Uri.parse("android.resource://$packageName/${R.raw.sos}")
+
         // 3. Afficher la notification avec compte à rebours et bouton Annuler
         val notificationBuilder = NotificationCompat.Builder(this, "fall_alert_channel")
             .setContentTitle("CHUTE DÉTECTÉE !")
@@ -458,7 +458,7 @@ class FallDetectionService : Service(), SensorEventListener {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setSound(sosSoundUri)
+            .setSound(Settings.System.DEFAULT_ALARM_ALERT_URI)
             .setVibrate(longArrayOf(0, 500, 200, 500))
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "ANNULER LE SOS", cancelPendingIntent)
 

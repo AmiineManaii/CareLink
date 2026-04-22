@@ -5,6 +5,7 @@ const medicationLogSchema = new mongoose.Schema({
   elderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Elder', required: true },
   caregiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'Caregiver', required: true },
   status: { type: String, enum: ['taken', 'skipped', 'missed'], default: 'taken' },
+  scheduledTime: { type: String }, // L'heure prévue (ex: "08:00")
   takenAt: { type: Date, default: Date.now },
   note: { type: String }, // Texte saisi ou transcrit
   audioUrl: { type: String }, // Chemin vers le fichier audio enregistré

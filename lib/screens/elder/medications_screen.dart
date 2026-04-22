@@ -20,7 +20,7 @@ class MedicationsScreen extends StatefulWidget {
 }
 
 class _MedicationsScreenState extends State<MedicationsScreen> {
-  List<Medication> _medications = [];
+  List<Map<String, dynamic>> _medicationsExpanded = [];
   bool _isLoading = true;
   String? _error;
   final Set<String> _takenMedications = {};
@@ -48,19 +48,21 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     await _flutterTts.setLanguage("fr-FR");
   }
 
-  void _showConfirmationDialog(Medication med) {
+  void _showConfirmationDialog(Medication med, String scheduledTime) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => MedicationConfirmationDialog(
-        medicationName: med.name,
-        onConfirm: (note, audioPath) => _confirmTake(med, note, audioPath),
+        medicationName: "${med.name} ($scheduledTime)",
+        onConfirm: (note, audioPath) =>
+            _confirmTake(med, scheduledTime, note, audioPath),
       ),
     );
   }
 
   Future<void> _confirmTake(
     Medication med,
+    String scheduledTime,
     String note,
     String? audioPath,
   ) async {
@@ -72,6 +74,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       await ApiService().confirmMedicationTake(
         medicationId: med.id,
         elderId: elderId,
+        scheduledTime: scheduledTime,
         note: note,
         audioFile: audioPath != null ? File(audioPath) : null,
       );
@@ -82,12 +85,12 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       }
 
       setState(() {
-        _takenMedications.add(med.id);
+        _takenMedications.add("${med.id}_$scheduledTime");
         _isLoading = false;
       });
 
-      // Annuler la notification programmée car le médicament a été pris
-      await MedicationReminderService.cancelMedication(med);
+      // Annuler la notification programmée pour cet horaire spécifique
+      await MedicationReminderService.cancelMedication(med); // À affiner si possible pour un seul slot
 
       ScaffoldMessenger.of(
         context,
@@ -118,28 +121,30 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       final historyToday = await ApiService().getElderMedicationHistoryToday(
         elderId,
       );
-      final takenTodayIds = historyToday
-          .map(
-            (log) =>
-                log['medicationId']['_id']?.toString() ??
-                log['medicationId']?.toString(),
-          )
-          .where((id) => id != null)
+      final takenTodayKeys = historyToday
+          .map((log) {
+            final medId = log['medicationId']['_id']?.toString() ??
+                log['medicationId']?.toString();
+            final time = log['scheduledTime']?.toString();
+            return medId != null && time != null ? "${medId}_$time" : null;
+          })
+          .where((key) => key != null)
           .cast<String>()
           .toSet();
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
 
-      final todayMeds = allMeds.where((med) {
-        if (!med.active) return false;
+      final List<Map<String, dynamic>> expandedMeds = [];
+      for (var med in allMeds) {
+        if (!med.active) continue;
 
         final start = DateTime(
           med.startDate.year,
           med.startDate.month,
           med.startDate.day,
         );
-        if (start.isAfter(today)) return false;
+        if (start.isAfter(today)) continue;
 
         if (med.endDate != null) {
           final end = DateTime(
@@ -147,46 +152,63 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             med.endDate!.month,
             med.endDate!.day,
           );
-          if (end.isBefore(today)) return false;
+          if (end.isBefore(today)) continue;
         }
 
         if (med.frequency == 'Hebdomadaire' && med.days.isNotEmpty) {
-          if (!med.days.contains(now.weekday)) return false;
+          if (!med.days.contains(now.weekday)) continue;
         }
 
-        return true;
-      }).toList();
+        // Créer une entrée pour chaque horaire
+        for (var time in med.times) {
+          expandedMeds.add({
+            'medication': med,
+            'time': time,
+            'key': "${med.id}_$time",
+          });
+        }
+      }
 
-      todayMeds.sort((a, b) {
-        if (a.times.isEmpty) return 1;
-        if (b.times.isEmpty) return -1;
-        return a.times.first.compareTo(b.times.first);
+      expandedMeds.sort((a, b) {
+        final nowStr = DateFormat('HH:mm').format(now);
+        final timeA = a['time'] as String;
+        final timeB = b['time'] as String;
+        final isTakenA = takenTodayKeys.contains(a['key']);
+        final isTakenB = takenTodayKeys.contains(b['key']);
+
+        // 1. Les "pris" d'abord (historique), les "non pris" en bas
+        if (isTakenA != isTakenB) {
+          return isTakenA ? -1 : 1;
+        }
+
+        // 2. Dans chaque groupe, "à venir" d'abord, "passé" ensuite
+        final isUpcomingA = timeA.compareTo(nowStr) >= 0;
+        final isUpcomingB = timeB.compareTo(nowStr) >= 0;
+
+        if (isUpcomingA != isUpcomingB) {
+          return isUpcomingA ? -1 : 1;
+        }
+
+        // 3. Le plus proche de l'heure actuelle d'abord
+        if (isUpcomingA) {
+          return timeA.compareTo(timeB); // Chronologique pour le futur
+        } else {
+          return timeB.compareTo(timeA); // Plus récent d'abord pour le passé
+        }
       });
 
       setState(() {
-        _medications = todayMeds;
+        _medicationsExpanded = expandedMeds;
         _takenMedications.clear();
-        _takenMedications.addAll(takenTodayIds);
+        _takenMedications.addAll(takenTodayKeys);
         _isLoading = false;
       });
 
-      // Programmer les notifications uniquement pour les médicaments NON pris
-      final untakenMeds = todayMeds
-          .where((m) => !takenTodayIds.contains(m.id))
-          .toList();
+      // Programmer les notifications (on garde la logique existante sur l'objet Medication)
+      final untakenMeds = allMeds.where((m) {
+        return m.times.any((t) => !takenTodayKeys.contains("${m.id}_$t"));
+      }).toList();
       await MedicationReminderService.scheduleForMedications(untakenMeds);
-
-      // Annuler explicitement les notifications pour les médicaments pris aujourd'hui
-      for (var medId in takenTodayIds) {
-        final med = allMeds.firstWhere(
-          (m) => m.id == medId,
-          orElse: () => allMeds.first,
-        );
-        await MedicationReminderService.cancelMedicationById(
-          medId,
-          med.times.length,
-        );
-      }
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -195,27 +217,27 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     }
   }
 
-  Medication? _getNextMedication() {
-    if (_medications.isEmpty) return null;
+  Map<String, dynamic>? _getNextMedication() {
+    if (_medicationsExpanded.isEmpty) return null;
 
     final now = DateTime.now();
     final currentTimeStr = DateFormat('HH:mm').format(now);
 
-    // Trouver le prochain médicament non pris
-    for (var med in _medications) {
-      if (!_takenMedications.contains(med.id)) {
-        for (var time in med.times) {
-          if (time.compareTo(currentTimeStr) > 0) {
-            return med;
-          }
+    // Trouver le prochain médicament non pris aujourd'hui
+    for (var entry in _medicationsExpanded) {
+      final time = entry['time'] as String;
+      final key = entry['key'] as String;
+      if (!_takenMedications.contains(key)) {
+        if (time.compareTo(currentTimeStr) > 0) {
+          return entry;
         }
       }
     }
 
     // Si aucun médicament n'est prévu plus tard, chercher le premier non pris de la journée
     try {
-      return _medications.firstWhere(
-        (med) => !_takenMedications.contains(med.id),
+      return _medicationsExpanded.firstWhere(
+        (entry) => !_takenMedications.contains(entry['key'] as String),
       );
     } catch (e) {
       // Tous les médicaments sont pris
@@ -223,19 +245,11 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     }
   }
 
-  String _getNextTime(Medication med) {
-    final now = DateTime.now();
-    final currentTimeStr = DateFormat('HH:mm').format(now);
 
-    for (var time in med.times) {
-      if (time.compareTo(currentTimeStr) > 0) return time;
-    }
-    return med.times.isNotEmpty ? med.times.first : '--:--';
-  }
 
   @override
   Widget build(BuildContext context) {
-    final nextMed = _getNextMedication();
+    final nextEntry = _getNextMedication();
 
     return Scaffold(
       appBar: const CustomAppBar(
@@ -264,8 +278,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    if (nextMed != null)
-                      _buildNextMedicationCard(nextMed)
+                    if (nextEntry != null)
+                      _buildNextMedicationCard(nextEntry)
                     else
                       _buildNoMoreMedicationsCard(),
                     const SizedBox(height: 36),
@@ -280,7 +294,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                           ),
                         ),
                         Text(
-                          '${_medications.length} total',
+                          '${_medicationsExpanded.length} total',
                           style: TextStyle(
                             fontSize: 19,
                             color: Colors.grey[600],
@@ -289,10 +303,10 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                       ],
                     ),
                     const SizedBox(height: 18),
-                    if (_medications.isEmpty)
+                    if (_medicationsExpanded.isEmpty)
                       _buildEmptyState()
                     else
-                      ..._medications.map((med) => _buildMedicationCard(med)),
+                      ..._medicationsExpanded.map((entry) => _buildMedicationCard(entry)),
                   ],
                 ),
               ),
@@ -300,7 +314,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     );
   }
 
-  Widget _buildNextMedicationCard(Medication med) {
+  Widget _buildNextMedicationCard(Map<String, dynamic> entry) {
+    final Medication med = entry['medication'];
+    final String time = entry['time'];
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -327,7 +343,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               Icon(Icons.alarm, size: 40, color: Colors.purple[700]),
               const SizedBox(width: 16),
               Text(
-                _getNextTime(med),
+                time,
                 style: const TextStyle(
                   fontSize: 52,
                   fontWeight: FontWeight.bold,
@@ -435,17 +451,38 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     );
   }
 
-  Widget _buildMedicationCard(Medication med) {
-    final bool isTaken = _takenMedications.contains(med.id);
+  Widget _buildMedicationCard(Map<String, dynamic> entry) {
+    final Medication med = entry['medication'];
+    final String time = entry['time'];
+    final String key = entry['key'];
+    final bool isTaken = _takenMedications.contains(key);
+
+    // Vérifier si le médicament est en retard de plus de 5 minutes
+    final now = DateTime.now();
+    final parts = time.split(':');
+    final scheduledDateTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
+    final bool isLate = !isTaken && now.difference(scheduledDateTime).inMinutes >= 5;
+
     return Opacity(
       opacity: isTaken ? 0.6 : 1.0,
       child: Card(
         margin: const EdgeInsets.only(bottom: 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        elevation: isTaken ? 2 : 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: isLate
+              ? const BorderSide(color: Colors.redAccent, width: 2)
+              : BorderSide.none,
+        ),
+        elevation: isTaken ? 2 : (isLate ? 12 : 8),
         shadowColor: isTaken
             ? Colors.grey.withOpacity(0.1)
-            : Colors.purple.withOpacity(0.15),
+            : (isLate ? Colors.red.withOpacity(0.3) : Colors.purple.withOpacity(0.15)),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
@@ -458,7 +495,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   color: Colors.white,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isTaken ? Colors.green[100]! : Colors.purple[100]!,
+                    color: isTaken
+                        ? Colors.green[100]!
+                        : (isLate ? Colors.red[200]! : Colors.purple[100]!),
                     width: 2,
                   ),
                   image: med.photoUrl != null
@@ -474,7 +513,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                     ? Icon(
                         FontAwesomeIcons.pills,
                         size: 24,
-                        color: isTaken ? Colors.green[600] : Colors.purple[600],
+                        color: isTaken
+                            ? Colors.green[600]
+                            : (isLate ? Colors.red[600] : Colors.purple[600]),
                       )
                     : null,
               ),
@@ -488,7 +529,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: isTaken ? Colors.grey[700] : Colors.black87,
+                        color: isTaken
+                            ? Colors.grey[700]
+                            : (isLate ? Colors.red[900] : Colors.black87),
                         decoration: isTaken ? TextDecoration.lineThrough : null,
                       ),
                     ),
@@ -498,15 +541,20 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                         Icon(
                           Icons.access_time,
                           size: 20,
-                          color: Colors.grey[600],
+                          color: isLate ? Colors.red[700] : Colors.grey[600],
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          med.times.join(" • "),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: isTaken ? Colors.grey[600] : Colors.black87,
+                        Flexible(
+                          child: Text(
+                            isLate ? "$time (En retard !)" : time,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: isTaken
+                                  ? Colors.grey[600]
+                                  : (isLate ? Colors.red[700] : Colors.black87),
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -517,19 +565,30 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               // Bouton d'action (Prendre ou Déjà pris)
               GestureDetector(
                 onTap: () {
-                  if (!isTaken) {
-                    _showConfirmationDialog(med);
+                  if (!isTaken && !isLate) {
+                    _showConfirmationDialog(med, time);
+                  } else if (isLate) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Ce médicament est en retard. Veuillez contacter votre aidant."),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
                   }
                 },
                 child: Container(
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: isTaken ? Colors.green[600] : Colors.blue[600],
+                    color: isTaken
+                        ? Colors.green[600]
+                        : (isLate ? Colors.grey[400] : Colors.blue[600]),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: (isTaken ? Colors.green : Colors.blue)
+                        color: (isTaken
+                                ? Colors.green
+                                : (isLate ? Colors.grey : Colors.blue))
                             .withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
@@ -539,7 +598,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   child: Icon(
                     isTaken
                         ? FontAwesomeIcons.check
-                        : FontAwesomeIcons.handHoldingMedical,
+                        : (isLate
+                            ? FontAwesomeIcons.clock
+                            : FontAwesomeIcons.handHoldingMedical),
                     color: Colors.white,
                     size: 24,
                   ),
