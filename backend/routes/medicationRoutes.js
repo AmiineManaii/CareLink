@@ -5,6 +5,9 @@ const Medication = require('../models/medication');
 const MedicationLog = require('../models/medicationLog');
 const Caregiver = require('../models/caregiver');
 const uploadToCloudinary = require('../config/uploadToCloudinary');
+const Alert = require('../models/alert');
+
+
 
 // ✅ memoryStorage — pas de fichiers locaux
 const upload = multer({ storage: multer.memoryStorage() });
@@ -12,6 +15,29 @@ const upload = multer({ storage: multer.memoryStorage() });
 // ── Routes spécifiques EN PREMIER (avant /:elderId) ──────────────────────────
 
 // Confirmer la prise d'un médicament
+
+router.post('/upload',upload.single('imageSOS'),async(req,res)=>{
+  if(!req.file){
+    return res.status(400).json({ error: 'Aucune image fournie' });
+  }
+  const imageUrl = await uploadToCloudinary(req.file.buffer,'medication-image');
+  const alert =new Alert(
+    {
+      elderId: req.body.elderId,
+      caregiverId: req.body.caregiverId,
+      type: 'sos',
+      imageUrl,
+    }
+  )
+  await alert.save();
+  
+  res.status(201).json({ imageUrl });
+
+});
+
+
+
+
 router.post('/confirm-take', upload.single('audio'), async (req, res) => {
   try {
     const { medicationId, elderId, note, status, scheduledTime } = req.body;

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:care_link/services/api_service.dart';
 import 'package:care_link/utils/fonctions_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +16,7 @@ import 'package:care_link/widgets/common/custom_app_bar.dart';
 import 'package:care_link/widgets/common/sos_button.dart';
 import 'package:care_link/widgets/common/quick_action_card.dart';
 import 'package:care_link/main.dart';
+import 'package:image_picker/image_picker.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
@@ -27,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final LocationService _locationService = LocationService();
   final SOSService _sosService = SOSService();
   final HomeService _homeService = HomeService();
+  final ApiService _apiService = ApiService();
 
   bool _sosPressed = false;
   Timer? _sosTimer;
@@ -72,15 +76,30 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _handleSOSPress() {
+  Future<void> _takeimage() async {
+    String elder = await InMemoryFaceStorage().getElderId() ?? '';
+    String caregiver = await InMemoryFaceStorage().getCaregiverId() ?? '';
+    var picker = ImagePicker();
+    var pick = await picker.pickImage(source: ImageSource.gallery);
+    if (pick == null) {
+      return;
+    }
+    await _apiService.uploadImage(File(pick.path), elder, caregiver);
+  }
+
+  Future<void> _handleSOSPress() async {
+
     _sosTimer?.cancel();
     setState(() => _sosPressed = true);
     _sosTimer = Timer(const Duration(seconds: 2), () {
       if (_sosPressed) {
         _sosService.sendSOS(_locationService.lastKnownPosition);
         setState(() => _sosPressed = false);
+        
       }
+      
     });
+    await _takeimage();
   }
 
   void _handleSOSRelease() {

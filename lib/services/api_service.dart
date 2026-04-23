@@ -347,6 +347,18 @@ class ApiService {
       throw Exception('Failed to delete medication: ${resp.body}');
     }
   }
+  Future<void>uploadImage(File image,String elderId,String caregiverId) async{
+    final uri=Uri.parse('$baseUrl/medications/upload');
+    final request=http.MultipartRequest('POST', uri);
+    request.fields['elderId'] = elderId;
+    request.fields['caregiverId'] = caregiverId;
+    request.files.add(await http.MultipartFile.fromPath('imageSOS', image.path));
+    final stream =await request.send();
+    final response = await http.Response.fromStream(stream);
+    if (response.statusCode != 201) {
+      throw Exception('Failed to upload image: ${response.body}');
+    }
+  }
 
   Future<void> confirmMedicationTake({
     required String medicationId,

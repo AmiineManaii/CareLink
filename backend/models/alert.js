@@ -9,6 +9,7 @@ const AlertSchema = new mongoose.Schema(
     latitude: { type: String },
     longitude: { type: String },
     read: { type: Boolean, default: false },
+    imageUrl: {type:String},
   },
   { timestamps: true }
 );

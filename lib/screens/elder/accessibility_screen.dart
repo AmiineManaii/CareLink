@@ -311,7 +311,7 @@ class _AccessibilityScreenState extends State<AccessibilityScreen> {
           {
             "label": aiResult.toLowerCase(),
             "labelFr": fr,
-            "confidence": isOllama ? 1 : 0.0,
+            "confidence": isOllama ? 1.0 : 0.0,
             "source": isOllama ? "ollama" : "other",
           },
         ],
